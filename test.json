@@ -1,0 +1,13 @@
+{
+    "title": "Digital Twin: Benefits, use cases, challenges, and opportunities",
+    "authors": [
+        "Mohsen Attaran",
+        "Bilge Gokhan Celik"
+    ],
+    "summary": "This paper reviews the evolution, applications, and challenges of Digital Twin technology across industries. It highlights the exponential growth of Digital Twins in sectors like healthcare, manufacturing, and construction, while addressing barriers such as data standardization and high deployment costs. The study emphasizes the transformative potential of Digital Twins in enabling intelligent automation and predictive analytics.",
+    "key_findings": [
+        "Digital Twin technology is revolutionizing industries by enabling real-time virtual representations of physical assets, improving operational efficiency, and reducing costs through predictive maintenance and simulation.",
+        "Challenges include high deployment costs, data security concerns, and integration complexities with legacy systems, which hinder widespread adoption despite rapid market growth."
+    ],
+    "publication_year": "2023"
+}
