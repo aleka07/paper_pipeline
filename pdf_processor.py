@@ -49,8 +49,8 @@ class LocalPDFProcessor:
         # Enable Qwen Vision for images/charts
         pipeline_options.do_picture_description = True
         pipeline_options.picture_description_options = PictureDescriptionVlmOptions(
-            # NOTE: Verify this ID exists on HF. Standard is often "Qwen/Qwen2.5-VL-7B-Instruct"
-            repo_id="Qwen/Qwen2.5-VL-7B-Instruct", 
+            # NOTE: Verify this ID exists on HF. Standard is often "Qwen/Qwen3-VL-8B-Instruct"
+            repo_id="Qwen/Qwen3-VL-8B-Instruct", 
             prompt="Describe this image in detail. Extract data trends from charts and connection flows from diagrams.",
             inference_framework=InferenceFramework.TRANSFORMERS,
             transformers_model_type=TransformersModelType.AUTOMODEL_IMAGETEXTTOTEXT,
@@ -122,7 +122,7 @@ class LocalPDFProcessor:
                     {"role": "system", "content": self.system_prompt},
                     {"role": "user", "content": user_message}
                 ],
-                temperature=0.1, 
+                temperature=0.3, 
                 max_tokens=4096
             )
             
