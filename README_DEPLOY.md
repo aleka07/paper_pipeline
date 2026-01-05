@@ -361,3 +361,11 @@ python main.py --category ML --resume
 
 * **Quality is poor?**
 * **Fix:** Check `pdf_processor.py`. Ensure `max_chars` is set to `120000` (Step 3).
+
+docker run -it --gpus all -p 8000:8000 nvcr.io/nvidia/vllm:${LATEST_VLLM_VERSION} vllm serve "nvidia/Qwen3-32B-FP4" --max_model_len 16384 --gpu-memory-utilization 0.8
+
+
+
+
+
+docker run -d --gpus all     -p 8000:8000     --ipc=host     -v ~/.cache/huggingface:/root/.cache/huggingface     nvcr.io/nvidia/vllm:${LATEST_VLLM_VERSION}     vllm serve "openai/gpt-oss-20b"     --max_model_len 81280     --gpu-memory-utilization 0.5
