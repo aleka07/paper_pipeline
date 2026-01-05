@@ -54,30 +54,15 @@ class LocalPDFProcessor:
         # Enable Qwen Vision for images/charts
         pipeline_options.do_picture_description = True
         
-        # Universal VLM prompt for academic paper images
-        vlm_prompt = """Analyze this image from a scientific/academic paper. Follow these rules:
+        # Optimized VLM prompt based on Qwen3-VL best practices:
+        # - Direct and simple instruction
+        # - No numbered lists (causes early EOS)
+        # - Clear end expectation
+        vlm_prompt = """Describe this scientific figure in detail.
 
-1. IDENTIFY the image type: chart, diagram, table, photo, schematic, flowchart, or other.
+Output format: "TYPE: [chart/diagram/table/other]. CONTENT: [description]. DATA: [all numbers and labels]. INSIGHT: [what the data shows]."
 
-2. For CHARTS/GRAPHS:
-   - State the chart type (bar, line, pie, scatter, etc.)
-   - List all axis labels and their ranges
-   - Extract ALL numeric values shown
-   - Describe trends and comparisons between data points
-
-3. For DIAGRAMS/FLOWCHARTS:
-   - Describe all components and their connections
-   - Note the direction of flow (arrows)
-   - Explain the overall process or architecture
-
-4. For TABLES:
-   - List all column and row headers
-   - Extract key data values
-
-5. For OTHER images:
-   - Describe what is shown and its relevance to the paper
-
-Always provide complete descriptions. Never leave sentences unfinished."""
+Be thorough and complete your response with the INSIGHT section. /no_think"""
 
         pipeline_options.picture_description_options = PictureDescriptionVlmOptions(
             repo_id="Qwen/Qwen3-VL-8B-Instruct", 
@@ -86,7 +71,7 @@ Always provide complete descriptions. Never leave sentences unfinished."""
             transformers_model_type=TransformersModelType.AUTOMODEL_IMAGETEXTTOTEXT,
             temperature=0.2,
             scale=2.0,
-            max_new_tokens=1024,          # Prevent mid-sentence cutoff
+            max_new_tokens=8192,          # Increased: Qwen3 uses thinking tokens
             min_coverage_area_pct=0.01,   # Process even small images (1% of page)
             batch_size=1                   # Process one image at a time for stability
         )
