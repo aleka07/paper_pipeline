@@ -1,113 +1,102 @@
+import argparse
 import sys
-import json
-import re
+import time
 from pathlib import Path
-from openai import OpenAI
-from pypdf import PdfReader
+from pdf_processor import LocalPDFProcessor
 
-# --- CONFIGURATION ---
-CLIENT = OpenAI(base_url="http://localhost:8000/v1", api_key="EMPTY")
-MODEL_NAME = "nvidia/Qwen3-32B-FP4"
+# --- CONFIG ---
+INPUT_DIR = Path("data/input")
+OUTPUT_DIR = Path("data/output")
+# Ensure these exist
+INPUT_DIR.mkdir(parents=True, exist_ok=True)
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+Path("logs").mkdir(exist_ok=True)
 
-def extract_text_from_pdf(pdf_path):
-    """Reads a PDF and returns the full text content."""
-    print(f"📄 Reading PDF: {pdf_path}...")
-    try:
-        reader = PdfReader(pdf_path)
-        text = ""
-        for page in reader.pages:
-            text += page.extract_text() + "\n"
-        print(f"   (Extracted {len(text)} characters)")
-        return text
-    except Exception as e:
-        print(f"❌ Error reading PDF: {e}")
-        return None
-
-def clean_response(response_text):
-    """
-    Removes the <think>...</think> blocks from Qwen's output 
-    and extracts the JSON part.
-    """
-    # 1. Remove the thinking block
-    clean_text = re.sub(r'<think>.*?</think>', '', response_text, flags=re.DOTALL)
+def list_categories():
+    if not INPUT_DIR.exists():
+        print("❌ 'data/input' directory not found.")
+        return
     
-    # 2. Extract JSON if wrapped in markdown code blocks
-    # (Models often output ```json ... ```)
-    json_match = re.search(r'```json\s*(.*?)\s*```', clean_text, re.DOTALL)
-    if json_match:
-        return json_match.group(1)
-    
-    # 3. If no code blocks, try to find the first '{' and last '}'
-    start = clean_text.find('{')
-    end = clean_text.rfind('}') + 1
-    if start != -1 and end != -1:
-        return clean_text[start:end]
-        
-    return clean_text
+    print("\n📂 Available Categories:")
+    found = False
+    for item in INPUT_DIR.iterdir():
+        if item.is_dir():
+            files = list(item.glob("*.pdf"))
+            if files:
+                print(f"   - {item.name} ({len(files)} PDFs)")
+                found = True
+    if not found:
+        print("   (No folders with PDFs found in data/input)")
 
-def process_pdf(pdf_path):
-    # 1. Get Text
-    text = extract_text_from_pdf(pdf_path)
-    if not text:
+def process_category(processor, category, resume=False, start_from=1):
+    cat_dir = INPUT_DIR / category
+    if not cat_dir.exists():
+        print(f"❌ Category folder '{category}' not found.")
         return
 
-    # 2. Prepare Prompt
-    # We truncate text if it's wildly too long, but 16k tokens is a lot.
-    prompt_content = f"""
-    You are a data extraction assistant. 
-    Analyze the following academic paper text and extract the key details into JSON format.
+    files = sorted(list(cat_dir.glob("*.pdf")))
+    print(f"\n🚀 Processing Category: {category} ({len(files)} files)")
     
-    Required JSON Structure:
-    {{
-        "title": "Paper Title",
-        "authors": ["Author 1", "Author 2"],
-        "summary": "A short summary of the paper (max 3 sentences).",
-        "key_findings": ["finding 1", "finding 2"],
-        "publication_year": "YYYY"
-    }}
-
-    PAPER TEXT:
-    {text[:45000]} 
-    """ 
-    # Note: text[:45000] is a rough safety limit for ~12-15k tokens.
-
-    print("🧠 Sending to Qwen model (this may take a moment)...")
-
-    try:
-        completion = CLIENT.chat.completions.create(
-            model=MODEL_NAME,
-            messages=[
-                {"role": "system", "content": "You are a helpful API that outputs strict JSON only."},
-                {"role": "user", "content": prompt_content}
-            ],
-            temperature=0.2, # Low temperature for more consistent JSON
-        )
-        
-        raw_output = completion.choices[0].message.content
-        
-        # 3. Clean and Parse
-        json_str = clean_response(raw_output)
-        data = json.loads(json_str)
-        
-        # 4. Save to File
-        output_filename = Path(pdf_path).stem + ".json"
-        with open(output_filename, "w", encoding='utf-8') as f:
-            json.dump(data, f, indent=4)
+    success_count = 0
+    
+    for idx, pdf_file in enumerate(files, 1):
+        if idx < start_from:
+            continue
             
-        print(f"✅ Success! Saved to {output_filename}")
-        print("\n--- PREVIEW ---")
-        print(json.dumps(data, indent=2))
+        # Check if already processed (Smart Resume)
+        expected_json = OUTPUT_DIR / category / f"{category}-{idx:03d}.json"
+        if resume and expected_json.exists():
+            print(f"   ⏩ Skipping {idx}: {pdf_file.name} (Already exists)")
+            continue
+
+        print(f"\n[{idx}/{len(files)}] Processing ID: {category}-{idx:03d}")
+        result = processor.process_pdf(pdf_file, category, idx)
         
-    except json.JSONDecodeError:
-        print("❌ Failed to parse JSON. Raw output was:")
-        print(raw_output)
-    except Exception as e:
-        print(f"❌ API Error: {e}")
+        if result:
+            success_count += 1
+        
+        # Local model cool-down (optional, keeps GPU from overheating if consumer card)
+        # time.sleep(1) 
+
+    print(f"\n✅ Completed {category}: {success_count}/{len(files)} processed.")
+
+def main():
+    parser = argparse.ArgumentParser(description="Local PDF to JSON Pipeline (vLLM)")
+    
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--list", action="store_true", help="List available categories")
+    group.add_argument("--category", type=str, help="Process a specific category")
+    group.add_argument("--all", action="store_true", help="Process ALL categories")
+    group.add_argument("--file", type=str, help="Process a single PDF file")
+    
+    parser.add_argument("--resume", action="store_true", help="Skip files that already have JSON output")
+    parser.add_argument("--start-from", type=int, default=1, help="Start sequence ID from this number")
+
+    args = parser.parse_args()
+
+    # Initialize Processor
+    processor = LocalPDFProcessor()
+
+    if args.list:
+        list_categories()
+    
+    elif args.file:
+        fpath = Path(args.file)
+        if not fpath.exists():
+            print("❌ File not found.")
+            return
+        # Try to deduce category from folder name
+        cat = fpath.parent.name
+        print(f"Processing single file (Category: {cat})")
+        processor.process_pdf(fpath, cat, args.start_from)
+
+    elif args.category:
+        process_category(processor, args.category, args.resume, args.start_from)
+
+    elif args.all:
+        for item in INPUT_DIR.iterdir():
+            if item.is_dir():
+                process_category(processor, item.name, args.resume)
 
 if __name__ == "__main__":
-    # Create a dummy PDF if you don't have one to test
-    if len(sys.argv) < 2:
-        print("Usage: python main.py <path_to_pdf>")
-        print("Please provide a PDF file path.")
-    else:
-        process_pdf(sys.argv[1])
+    main()
