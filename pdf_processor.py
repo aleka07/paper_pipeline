@@ -54,26 +54,32 @@ class LocalPDFProcessor:
         # Enable Qwen Vision for images/charts
         pipeline_options.do_picture_description = True
         
-        # Optimized VLM prompt based on Qwen3-VL best practices:
-        # - Direct and simple instruction
-        # - No numbered lists (causes early EOS)
-        # - Clear end expectation
-        vlm_prompt = """Describe this scientific figure in detail.
+        # JSON structured output - forces complete response
+        vlm_prompt = """Analyze this scientific figure and output valid JSON:
 
-Output format: "TYPE: [chart/diagram/table/other]. CONTENT: [description]. DATA: [all numbers and labels]. INSIGHT: [what the data shows]."
+{
+  "type": "chart|diagram|table|photo|other",
+  "description": "what the figure shows",
+  "data": ["list", "of", "all", "labels", "and", "values"],
+  "insight": "what the data means or shows"
+}
 
-Be thorough and complete your response with the INSIGHT section. /no_think"""
+Output only the JSON, nothing else."""
 
         pipeline_options.picture_description_options = PictureDescriptionVlmOptions(
             repo_id="Qwen/Qwen3-VL-8B-Instruct", 
             prompt=vlm_prompt,
             inference_framework=InferenceFramework.TRANSFORMERS,
             transformers_model_type=TransformersModelType.AUTOMODEL_IMAGETEXTTOTEXT,
-            temperature=0.2,
             scale=2.0,
-            max_new_tokens=8192,          # Increased: Qwen3 uses thinking tokens
             min_coverage_area_pct=0.01,   # Process even small images (1% of page)
-            batch_size=1                   # Process one image at a time for stability
+            batch_size=1,                  # Process one image at a time for stability
+            # generation_config is the correct way to set token limits
+            generation_config={
+                "max_new_tokens": 2048,    # Max output length (was defaulting to 256!)
+                "temperature": 0.2,
+                "do_sample": True
+            }
         )
 
         # Use the remaining GPU power (Docker used 50%, we use the rest)
