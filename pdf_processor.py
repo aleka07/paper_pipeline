@@ -20,6 +20,9 @@ from docling.datamodel.pipeline_options_vlm_model import (
     TransformersModelType
 )
 
+# --- CONFIG ---
+MARKDOWN_DIR = Path("data/markdown")
+
 class LocalPDFProcessor:
     def __init__(self, base_url="http://localhost:8000/v1", model_name="nvidia/Qwen3-32B-FP4"):
         self.client = OpenAI(base_url=base_url, api_key="EMPTY")
@@ -40,7 +43,9 @@ class LocalPDFProcessor:
     def _setup_docling(self):
         """Configures the Qwen-VL based document converter."""
         pipeline_options = PdfPipelineOptions()
-        pipeline_options.do_ocr = True
+        # OCR disabled - Scopus papers (2020+) have embedded digital text
+        # Enable only if processing scanned documents
+        pipeline_options.do_ocr = False
         pipeline_options.do_table_structure = True
         pipeline_options.table_structure_options.mode = TableFormerMode.ACCURATE
         pipeline_options.do_formula_enrichment = True
@@ -48,14 +53,42 @@ class LocalPDFProcessor:
         
         # Enable Qwen Vision for images/charts
         pipeline_options.do_picture_description = True
+        
+        # Universal VLM prompt for academic paper images
+        vlm_prompt = """Analyze this image from a scientific/academic paper. Follow these rules:
+
+1. IDENTIFY the image type: chart, diagram, table, photo, schematic, flowchart, or other.
+
+2. For CHARTS/GRAPHS:
+   - State the chart type (bar, line, pie, scatter, etc.)
+   - List all axis labels and their ranges
+   - Extract ALL numeric values shown
+   - Describe trends and comparisons between data points
+
+3. For DIAGRAMS/FLOWCHARTS:
+   - Describe all components and their connections
+   - Note the direction of flow (arrows)
+   - Explain the overall process or architecture
+
+4. For TABLES:
+   - List all column and row headers
+   - Extract key data values
+
+5. For OTHER images:
+   - Describe what is shown and its relevance to the paper
+
+Always provide complete descriptions. Never leave sentences unfinished."""
+
         pipeline_options.picture_description_options = PictureDescriptionVlmOptions(
-            # NOTE: Verify this ID exists on HF. Standard is often "Qwen/Qwen3-VL-8B-Instruct"
             repo_id="Qwen/Qwen3-VL-8B-Instruct", 
-            prompt="Describe this image in detail. Extract data trends from charts and connection flows from diagrams.",
+            prompt=vlm_prompt,
             inference_framework=InferenceFramework.TRANSFORMERS,
             transformers_model_type=TransformersModelType.AUTOMODEL_IMAGETEXTTOTEXT,
-            temperature=0.1,
-            scale=2.0
+            temperature=0.2,
+            scale=2.0,
+            max_new_tokens=1024,          # Prevent mid-sentence cutoff
+            min_coverage_area_pct=0.01,   # Process even small images (1% of page)
+            batch_size=1                   # Process one image at a time for stability
         )
 
         # Use the remaining GPU power (Docker used 50%, we use the rest)
@@ -77,8 +110,12 @@ class LocalPDFProcessor:
             start_t = time.time()
             result = self.converter.convert(pdf_path)
             
-            # Export to Markdown with placeholders for images
-            md_content = result.document.export_to_markdown(image_placeholder="\n\n> **[Visual Content Description]**\n")
+            # Export to Markdown
+            # VLM descriptions are added as annotations automatically
+            # image_placeholder is just for the image reference (we use empty to keep clean)
+            md_content = result.document.export_to_markdown(
+                image_placeholder=""  # VLM descriptions appear separately as text
+            )
             
             elapsed = time.time() - start_t
             print(f"   ✅ Visual Analysis complete ({elapsed:.1f}s)")
@@ -95,23 +132,48 @@ class LocalPDFProcessor:
             clean = json_match.group(1)
         return clean.strip()
 
-    def process_pdf(self, pdf_path, category_code, sequence_id):
+    def convert_pdf_to_markdown(self, pdf_path, category_code, sequence_id):
+        """
+        Phase 1: Convert a single PDF to Markdown and save it.
+        Returns True on success, False on failure.
+        """
         path_obj = Path(pdf_path)
         paper_id = f"{category_code}-{sequence_id:03d}"
         
-        # 1. Use Docling to get Markdown instead of simple Text
+        # Extract markdown from PDF
         markdown_text = self.extract_markdown(str(path_obj))
         
         if not markdown_text:
             return False
 
-        # Save the intermediate Markdown for debugging/verification
-        debug_dir = Path("data/debug_markdown") / category_code
-        debug_dir.mkdir(parents=True, exist_ok=True)
-        with open(debug_dir / f"{paper_id}.md", "w", encoding="utf-8") as f:
+        # Save the Markdown file
+        md_output_dir = MARKDOWN_DIR / category_code
+        md_output_dir.mkdir(parents=True, exist_ok=True)
+        md_file = md_output_dir / f"{paper_id}.md"
+        
+        with open(md_file, "w", encoding="utf-8") as f:
             f.write(markdown_text)
+        
+        print(f"   ✅ Saved: {md_file}")
+        return True
 
-        # 2. Inject into Prompt
+    def generate_json_from_markdown(self, md_path, category_code):
+        """
+        Phase 2: Read a Markdown file and generate JSON using LLM.
+        Returns True on success, False on failure.
+        """
+        md_path = Path(md_path)
+        paper_id = md_path.stem  # e.g., "category-001"
+        
+        # Read the markdown content
+        try:
+            with open(md_path, "r", encoding="utf-8") as f:
+                markdown_text = f.read()
+        except Exception as e:
+            print(f"   ❌ Failed to read markdown: {e}")
+            return False
+
+        # Inject into Prompt
         user_message = f"PAPER ID: {paper_id}\nCATEGORY: {category_code}\n\nANALYZED DOCUMENT CONTENT (MARKDOWN):\n{markdown_text}"
 
         print(f"   🧠 Generating JSON with {self.model_name}...")
@@ -147,3 +209,17 @@ class LocalPDFProcessor:
         except Exception as e:
             print(f"   ❌ Inference Failed: {e}")
             return False
+
+    def process_pdf(self, pdf_path, category_code, sequence_id):
+        """
+        Legacy method: Full pipeline (PDF → MD → JSON) for a single file.
+        Kept for backwards compatibility.
+        """
+        # Phase 1: Convert to MD
+        if not self.convert_pdf_to_markdown(pdf_path, category_code, sequence_id):
+            return False
+        
+        # Phase 2: Generate JSON from MD
+        paper_id = f"{category_code}-{sequence_id:03d}"
+        md_file = MARKDOWN_DIR / category_code / f"{paper_id}.md"
+        return self.generate_json_from_markdown(md_file, category_code)
