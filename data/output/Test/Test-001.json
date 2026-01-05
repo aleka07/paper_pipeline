@@ -8,12 +8,12 @@
     ],
     "year": 2023,
     "publication_venue": "Decision Analytics Journal",
-    "doi": "10.1016/j.dajour.2023.100165"
+    "doi": null
   },
   "summary": {
-    "problem_statement": "Applications of Digital Twin technology are growing exponentially, transforming business operations across industries.",
-    "objective": "To conduct a literature review exploring how Digital Twins streamline intelligent automation in different industries.",
-    "key_contribution": "Comprehensive analysis of Digital Twin definitions, enabling technologies, industry applications, and challenges/opportunities."
+    "problem_statement": "Digital Twin technology is rapidly growing but requires comprehensive analysis of its applications, challenges, and opportunities.",
+    "objective": "To conduct a literature review exploring how Digital Twins streamline intelligent automation across industries.",
+    "key_contribution": "A structured analysis of Digital Twin definitions, enabling technologies, industry applications, and future challenges."
   },
   "methodology": {
     "approach_type": "Literature Review",
@@ -23,23 +23,23 @@
       "Cloud Computing",
       "Extended Reality (XR)"
     ],
-    "method_summary": "Conducted narrative literature review using Scopus and Google Scholar databases, analyzing peer-reviewed articles, conference papers, and reports to address research questions on Digital Twin definitions, technologies, applications, and challenges."
+    "method_summary": "The study performed a narrative literature review using Scopus and Google Scholar, searching for papers with 'Digital Twin' in the title. Selected articles from journals, conferences, and reports were analyzed to address questions about definitions, technologies, applications, and challenges of Digital Twins."
   },
   "results_and_evaluation": {
     "key_findings": [
-      "Digital Twin market is projected to grow at 25% CAGR from 2023-2032, reaching $73.5 billion by 2027",
-      "Technology adoption spans manufacturing, healthcare, agriculture, construction, and automotive industries with applications in predictive maintenance, product design, and supply chain optimization"
+      "Digital Twin adoption is projected to grow at 25% CAGR in the $8 billion market by 2032.",
+      "Applications span healthcare, manufacturing, agriculture, and construction with benefits like predictive maintenance and process optimization."
     ],
     "evaluation_metrics": [
       "Market growth rates (CAGR 25%)",
-      "Industry adoption percentages (75% IoT organizations using Digital Twins by 2020)"
+      "Adoption percentages (60% of executives plan to use by 2028)"
     ]
   },
   "keywords": [
     "Digital Twins",
-    "Digital Twin Technologies",
-    "Healthcare and Life Sciences",
-    "Automotive and Aerospace Industry",
-    "Construction and Real Estate"
+    "Internet of Things",
+    "Artificial Intelligence",
+    "Extended Reality",
+    "Industry 4.0"
   ]
 }

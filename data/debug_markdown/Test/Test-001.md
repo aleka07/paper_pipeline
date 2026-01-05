@@ -1,4 +1,7 @@
-[IMAGE_DESCRIBED_BELOW]
+
+
+> **[Visual Content Description]**
+
 
 Contents lists available at ScienceDirect
 
@@ -40,15 +43,34 @@ In 2003 Professor Grieves of the University of Michigan introduced the concept o
 
 ∗ Corresponding author. E-mail addresses: mattaran@csub.edu (M. Attaran), bgcelik@rwu.edu (B.G. Celik).
 
-[IMAGE_DESCRIBED_BELOW]
 
-[IMAGE_DESCRIBED_BELOW]
+
+> **[Visual Content Description]**
+
+
+
+
+> **[Visual Content Description]**
+
 
 Fig. 1. Levels of integration.
 
-The x-axis represents Model, and the y-axis represents Digital Shadow. The trend of the data is that a digital representation of a physical entity is represented by a virtual-to-physical. There is a significant outlier or cluster in the data which is a digital representation of a physical entity with a bi-directional information flow.
+The image is a diagram that illustrates the relationship between three concepts: Digital Model, Digital Shadow, and Digital Twin. Each concept is described in terms of its characteristics and the type of information flow it involves. Here is a detailed description:
 
-[IMAGE_DESCRIBED_BELOW]
+1. **Digital Model**:
+   - **Description**: A digital representation of a physical entity.
+   - **Position**: Positioned at the top of the diagram.
+   - **Characteristics**: This is the most basic form of a digital representation, which is a static and one-way representation of a physical entity.
+
+2. **Digital Shadow**:
+   - **Description**: A digital representation with uni-directional information flow.
+   - **Position**: Positioned in the middle of the diagram.
+   - **Characteristics**: This concept involves a digital representation that flows information in one direction, typically from the physical world to the digital world. This is often used in scenarios where the digital representation is used to monitor or control the physical entity but does not allow the physical entity
+
+
+
+> **[Visual Content Description]**
+
 
 representations of physical objects across the lifecycle that can be understood, learned, and reasoned with real-time data or a simulation model that acquires data from the field and triggers the operation of physical devices [15,16].
 
@@ -77,52 +99,42 @@ Fig. 4 highlights the impact of Digital Twins solutions on the business world, a
 
 Fig. 2. Technologies of Digital Twins.
 
-The image depicts a circular diagram representing a data visualization called "Digital Twin." The diagram is divided into four quadrants, each representing different aspects of the data.
+The image is a diagram illustrating the components and connections of a Digital Twin system, which integrates Internet of Things (IoT), Artificial Intelligence (AI), Cloud computing, and Extended Reality (XR) technologies. Here is a detailed description and analysis of the components and their interconnections:
 
-1. **IOT Sensor**:
-   - The top left quadrant is labeled "IoT Sensor," indicating that this is the first quadrant of the digital twin.
-   - The top right quadrant is labeled "AI," suggesting that this is the second quadrant.
-   - The bottom left quadrant is labeled "Cloud," indicating that this is the third quadrant.
+### Components of the Digital Twin System:
 
-2. **Cloud**:
-   - The bottom right quadrant is labeled "Cloud," indicating that this is the fourth quadrant.
+1. **IoT (Internet of Things)**:
+   - **Description**: IoT sensors provide constant data transmission.
+   - **Role**: IoT sensors collect real-time data from physical objects and environments, which is essential for the Digital Twin to have a live, accurate representation of the physical world.
 
-3. **XR**:
-   - The top left quadrant is labeled "XR," indicating that this is the first quadrant.
-   - The top right quadrant is labeled "XR," indicating that this is the second quadrant.
-   - The bottom left quadrant is labeled "XR," indicating that this is the third quadrant.
+2. **AI (Artificial Intelligence)**:
+   - **Description**: AI analyzes the captured data, provides insights, and makes predictions.
+   - **Role**: AI processes the data collected by IoT sensors, identifies patterns, and provides actionable insights. This helps in making predictions and optimizing the system based on the data analysis.
 
-4. **Data Analysis
+3. **XR (Extended Reality)**:
+   - **
 
-[IMAGE_DESCRIBED_BELOW]
+
+
+> **[Visual Content Description]**
+
 
 Fig. 3. Industries using Digital Twins.
 
-The X axis represents the different categories of information, and the Y axis represents the value or percentage. Significant outliers or clusters include:
-- Education: 07%
-- Construction: 08%
-- Construction: 09%
-- Construction: 09%
-- Construction: 08%
-- Construction: 07%
-- Construction: 06%
-- Construction: 05%
-- Construction: 04%
-- Construction: 03%
-- Construction: 02%
-- Construction: 01%
-- Construction: 00%
-- Construction: 09%
-- Construction: 08%
-- Construction: 07%
-- Construction: 06%
-- Construction: 05%
-- Construction: 04%
-- Construction: 03%
-- Construction: 02%
-- Construction: 0
+The image is a circular diagram that illustrates the integration of various industries with a central theme, likely related to technology or innovation, as suggested by the central icon depicting a 3D printer and a robotic arm. The diagram is divided into ten sectors, each labeled with a number and a corresponding icon and industry name. The sectors are connected by lines, indicating a network or interconnected relationship between the industries.
 
-[IMAGE_DESCRIBED_BELOW]
+Here is a detailed description of the sectors and their connections:
+
+1. **Retail (01)**: Represented by a shopping cart and a person, indicating retail commerce.
+2. **Healthcare (02)**: Represented by a doctor and a patient, indicating healthcare services.
+3. **Manufacturing (03)**: Represented by a factory and a person, indicating industrial manufacturing.
+4. **Mining (04)**: Represented by a mining site and a person, indicating mining operations.
+5. **Utilities (05)**: Represented by a water droplet
+
+
+
+> **[Visual Content Description]**
+
 
 innovation [52]. By utilizing the power of the Digital Twin, manufacturing companies can move from being reactive to predictive. They can predict when equipment is wearing down or needs repair, improve the machine's performance, extend their lives and learn how to redesign to do even more. Additionally, Digital Twins enable them to do usagebased design and pre-sales analytics and add intelligence to manual processes to enhance visibility into customer needs, etc. The following sections discuss these capabilities and Digital Twins' usage in more detail.
 
@@ -192,9 +204,23 @@ There are many potential use cases for Digital Twinning in manufacturing, includ
 
 Fig. 4. Digital twins use cases and applications.
 
-The X axis represents the years from 1985 to 2002. The Y axis represents the Information Monitoring. The trend of the data is that it increases from 1985 to 2002. There are significant outliers or clusters in the data, which are the 2014-16 IoT Devices decision making tools and the 2017-present decision making tools.
+The image is a timeline that illustrates the evolution of a system or process over time, divided into four distinct phases. Here is a detailed description of each phase:
 
-[IMAGE_DESCRIBED_BELOW]
+1. **1985-2002: Information Monitoring**
+   - This phase is represented by an orange box labeled "Information Monitoring."
+   - It indicates the initial stage where the primary focus was on monitoring information. This could involve collecting and analyzing data to gain insights into the system's performance or state.
+
+2. **2003-2013: Digital Simulation**
+   - The second phase, marked by a brown box, is labeled "Digital Simulation."
+   - This phase suggests a shift towards using digital tools and models to simulate the system. This could involve creating digital representations of the system to test hypotheses, predict outcomes, or optimize processes without the need for physical experimentation.
+
+3. **2014-2016: IoT Devices**
+   - The third phase, indicated by a
+
+
+
+> **[Visual Content Description]**
+
 
 Fig. 5. Evolution of Digital Twins in manufacturing.
 
