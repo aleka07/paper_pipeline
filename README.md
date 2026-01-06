@@ -120,12 +120,45 @@ paper-pipeline/
 
 ## CLI Commands
 
-| Command | Description |
-|---------|-------------|
-| `python main.py --list` | Show all categories with file counts |
-| `python main.py --file path/to/paper.pdf` | Process single PDF |
-| `python main.py --category CategoryName` | Process all PDFs in category |
-| `python main.py --all` | Process ALL categories |
+### List & Status
+```bash
+python main.py --list                    # Show all categories with counts
+python main.py --list-files Req_2        # List files in category with status (✅/🔶/⏳)
+```
+
+### Phase 1: PDF → Markdown (Vision)
+```bash
+python main.py --convert                 # Convert ALL PDFs to Markdown
+python main.py --convert Req_2           # Convert only 'Req_2' category
+python main.py --convert Req_2 --resume  # Skip PDFs that already have .md
+```
+
+### Phase 2: Markdown → JSON (LLM)
+```bash
+python main.py --generate                # Generate JSON for ALL Markdown
+python main.py --generate Req_2          # Generate JSON only for 'Req_2'
+python main.py --generate --resume       # Skip if .json already exists
+```
+
+### Full Pipeline (Both Phases)
+```bash
+python main.py --full                    # Process ALL: PDF → MD → JSON
+python main.py --full Req_2              # Full pipeline for 'Req_2' only
+python main.py --full Req_2 --resume     # Skip already processed files
+```
+
+### Single File
+```bash
+python main.py --file path/to/paper.pdf             # Full pipeline for one PDF
+python main.py --file path/to/paper.pdf --json-only # Only regenerate JSON (skip Vision)
+```
+
+### Resume & Start From
+```bash
+python main.py --convert Req_2 --start-from 5   # Start Phase 1 from file #5
+python main.py --generate Req_2 --start-from 10 # Start Phase 2 from file #10
+python main.py --full Req_2 --resume            # Skip files with existing output
+```
 
 ---
 
