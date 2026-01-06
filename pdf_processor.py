@@ -13,7 +13,8 @@ from docling.datamodel.pipeline_options import (
     TableFormerMode,
     AcceleratorOptions,
     AcceleratorDevice,
-    PictureDescriptionVlmOptions
+    PictureDescriptionVlmOptions,
+    EasyOcrOptions  # GPU-accelerated OCR for better math/symbol recognition
 )
 from docling.datamodel.pipeline_options_vlm_model import (
     InferenceFramework,
@@ -45,7 +46,15 @@ class LocalPDFProcessor:
         pipeline_options = PdfPipelineOptions()
         # OCR disabled - Scopus papers (2020+) have embedded digital text
         # Enable only if processing scanned documents
-        pipeline_options.do_ocr = False
+        pipeline_options.do_ocr = True
+        
+        # Use EasyOCR (GPU-accelerated, PyTorch-based) instead of RapidOCR
+        # RapidOCR had ONNX hardware issues on this system
+        pipeline_options.ocr_options = EasyOcrOptions(
+            use_gpu=True,
+            lang=["en"]  # English - add more languages if needed
+        )
+        
         pipeline_options.do_table_structure = True
         pipeline_options.table_structure_options.mode = TableFormerMode.ACCURATE
         pipeline_options.do_formula_enrichment = True
@@ -71,7 +80,7 @@ Output only the JSON, nothing else."""
             prompt=vlm_prompt,
             inference_framework=InferenceFramework.TRANSFORMERS,
             transformers_model_type=TransformersModelType.AUTOMODEL_IMAGETEXTTOTEXT,
-            scale=2.0,
+            scale=3.0,
             min_coverage_area_pct=0.01,   # Process even small images (1% of page)
             batch_size=1,                  # Process one image at a time for stability
             # generation_config is the correct way to set token limits
@@ -176,7 +185,7 @@ Output only the JSON, nothing else."""
                     {"role": "user", "content": user_message}
                 ],
                 temperature=0.3, 
-                max_tokens=4096
+                max_tokens=8192  # Increased for comprehensive JSON output (64K context available)
             )
             
             raw_output = completion.choices[0].message.content
