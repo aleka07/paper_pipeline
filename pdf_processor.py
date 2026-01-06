@@ -24,11 +24,42 @@ from docling.datamodel.pipeline_options_vlm_model import (
 # --- CONFIG ---
 MARKDOWN_DIR = Path("data/markdown")
 
+# Backend configurations
+BACKENDS = {
+    "vllm": {
+        "base_url": "http://localhost:8000/v1",
+        "api_key": "EMPTY",
+        "model": "nvidia/Qwen3-32B-FP4",
+        "extra_body": {}
+    },
+    "ollama": {
+        "base_url": "http://localhost:11434/v1",
+        "api_key": "ollama",
+        "model": "nemotron-large-ctx",
+        "extra_body": {"num_ctx": 131072}
+    }
+}
+
 class LocalPDFProcessor:
-    def __init__(self, base_url="http://localhost:8000/v1", model_name="nvidia/Qwen3-32B-FP4"):
-        self.client = OpenAI(base_url=base_url, api_key="EMPTY")
-        self.model_name = model_name
+    def __init__(self, backend="vllm"):
+        """
+        Initialize processor with specified backend.
+        
+        Args:
+            backend: "vllm" (default) or "ollama"
+        """
+        if backend not in BACKENDS:
+            raise ValueError(f"Unknown backend '{backend}'. Choose from: {list(BACKENDS.keys())}")
+        
+        self.backend = backend
+        config = BACKENDS[backend]
+        
+        self.client = OpenAI(base_url=config["base_url"], api_key=config["api_key"])
+        self.model_name = config["model"]
+        self.extra_body = config["extra_body"]
         self.system_prompt = self._load_prompt()
+        
+        print(f"   🔌 Using backend: {backend} ({self.model_name})")
         
         # Initialize Docling (Heavy operation, done once on startup)
         print("   ⚙️  Initializing Docling Vision Pipeline (Qwen-VL)...")
@@ -178,15 +209,22 @@ Output only the JSON, nothing else."""
 
         print(f"   🧠 Generating JSON with {self.model_name}...")
         try:
-            completion = self.client.chat.completions.create(
-                model=self.model_name,
-                messages=[
+            # Build request kwargs
+            request_kwargs = {
+                "model": self.model_name,
+                "messages": [
                     {"role": "system", "content": self.system_prompt},
                     {"role": "user", "content": user_message}
                 ],
-                temperature=0.3, 
-                max_tokens=8192  # Increased for comprehensive JSON output (64K context available)
-            )
+                "temperature": 0.3,
+                "max_tokens": 8192
+            }
+            
+            # Add backend-specific options (e.g., Ollama's num_ctx)
+            if self.extra_body:
+                request_kwargs["extra_body"] = self.extra_body
+            
+            completion = self.client.chat.completions.create(**request_kwargs)
             
             raw_output = completion.choices[0].message.content
             json_str = self.clean_json_response(raw_output)

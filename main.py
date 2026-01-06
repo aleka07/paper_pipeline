@@ -332,7 +332,11 @@ def main():
   # Fix single file's JSON only
   python main.py --file data/input/Req_2/paper.pdf --json-only
 
-📝 LOGS:
+� BACKEND SELECTION:
+  python main.py --generate Req_2 --backend vllm    # Use vLLM (default)
+  python main.py --generate Req_2 --backend ollama  # Use Ollama + Nemotron
+
+�📝 LOGS:
   All runs are logged to: logs/pipeline_YYYYMMDD_HHMMSS.log
 ═══════════════════════════════════════════════════════════════════
         """
@@ -358,6 +362,8 @@ def main():
                         help="Start processing from sequence number N (skip 1 to N-1)")
     parser.add_argument("--json-only", action="store_true",
                         help="For --file: skip Phase 1, only regenerate JSON from existing MD")
+    parser.add_argument("--backend", choices=["vllm", "ollama"], default="ollama",
+                        help="LLM backend for JSON generation: 'vllm' or 'ollama' (default)")
 
     args = parser.parse_args()
     
@@ -372,9 +378,9 @@ def main():
         return
 
     # Initialize Processor
-    log.info("🚀 Initializing PDF Processor...")
+    log.info(f"🚀 Initializing PDF Processor (backend: {args.backend})...")
     init_start = time.time()
-    processor = LocalPDFProcessor()
+    processor = LocalPDFProcessor(backend=args.backend)
     log.info(f"✅ Processor initialized in {format_time(time.time() - init_start)}")
 
     # Get category (None means all categories)
