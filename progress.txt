@@ -36,3 +36,60 @@ Conversation: 1e7d61c6-440c-4a66-badc-19ff6193408f
   - File status derived from: PDF exists → check for .json (completed) → check for .md (markdown) → pending
   - Category directories created in all three data folders: input/, markdown/, output/
 ---
+
+## 2026-01-16T13:15 - US-003: File Upload API
+Conversation: 95b92c1b-a772-4d47-a546-51c46d45c445
+- Implemented POST /api/categories/<name>/upload endpoint
+- PDF validation checks both file extension and MIME type
+- Duplicate filenames handled by appending _1, _2, etc.
+- File ID generated using MD5 hash of category/filename (12 chars)
+- Uses werkzeug `secure_filename` for safe path handling
+- Returns 201 on success with file info (id, filename, category, size, status)
+- Returns 400 on validation errors, 404 on missing category
+- Files changed: `backend/app.py`
+- **Learnings for future iterations:**
+  - Use `request.files['file']` to access uploaded files in Flask
+  - `secure_filename()` from werkzeug prevents path traversal attacks
+  - MIME type checking should be lenient (allow application/octet-stream as fallback)
+---
+
+## 2026-01-16T13:21 - US-004: File Listing API with Status
+Conversation: 138c6557-f6cd-4b78-8062-67ad7de9afde
+- Implemented GET /api/categories/<name>/files endpoint
+- Returns list of files with: id, filename, category, status, size, upload_date
+- Status derived from existence of .json (completed) or .md (markdown) files
+- Returns 404 for non-existent categories
+- Files changed: `backend/app.py`
+- **Learnings for future iterations:**
+- Use `datetime.fromtimestamp(stat.st_mtime).isoformat()` for file upload dates
+  - Sorted glob results for consistent file ordering
+---
+
+## 2026-01-16T13:25 - US-005: Processing Trigger API
+Conversation: c9140dcd-a9f3-4097-9139-e4aa1441d8b1
+- Implemented background processing infrastructure with job tracking
+- POST /api/process/file/<file_id> triggers full pipeline for single file
+- POST /api/process/category/<name> triggers processing for all pending files in category
+- POST /api/process/all triggers processing for all pending files across all categories
+- Processing runs in background thread (non-blocking) using Queue
+- Returns job ID for status tracking
+- Integrates with LocalPDFProcessor for two-phase processing (PDF→MD→JSON)
+- Files changed: `backend/app.py`
+- **Learnings for future iterations:**
+  - Use `threading.Thread(daemon=True)` for background processor that auto-exits with main
+  - Use `Queue` from stdlib for thread-safe task queue
+  - Lazy initialization of processor with global `_processor` variable
+  - Status includes "markdown" for files that have phase 1 done but need phase 2
+---
+
+## 2026-01-16T13:33 - US-006: Processing Status API
+Conversation: 7d1c1d9b-4a0d-4f13-a450-add5f4301d65
+- Implemented GET /api/status endpoint in `backend/app.py`
+- Returns current processing state: status (idle/running/paused), current_file, current_phase (1 or 2), queue_length
+- Uses existing `processing_state` dictionary with locking for thread safety
+- Pyright typecheck passes with 0 errors
+- Files changed: `backend/app.py`
+- **Learnings for future iterations:**
+  - `processing_state` global dict already tracks all needed status info
+  - Use `processing_lock` when reading shared state for thread safety
+---

@@ -225,6 +225,22 @@ def health_check():
     return jsonify({"status": "ok"})
 
 
+# ============= Processing Status API Endpoints =============
+
+@app.route('/api/status', methods=['GET'])
+def get_status():
+    """Get current processing status and queue information."""
+    with processing_lock:
+        status_response = {
+            "status": processing_state["status"],  # idle, running, or paused
+            "current_file": processing_state["current_file"],
+            "current_phase": processing_state["current_phase"],  # 1 (PDF→MD) or 2 (MD→JSON)
+            "queue_length": processing_state["queue_length"],
+        }
+    
+    return jsonify(status_response)
+
+
 # ============= Category API Endpoints =============
 
 @app.route('/api/categories', methods=['GET'])
