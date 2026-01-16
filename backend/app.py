@@ -265,6 +265,45 @@ def upload_file(name: str):
         return jsonify({"error": f"Failed to save file: {str(e)}"}), 500
 
 
+# ============= File Listing API Endpoints =============
+
+@app.route('/api/categories/<name>/files', methods=['GET'])
+def list_files(name: str):
+    """List all files in a category with their processing status."""
+    from datetime import datetime
+    
+    category_path = INPUT_DIR / name
+    
+    # Validate category exists
+    if not category_path.exists() or not category_path.is_dir():
+        return jsonify({"error": f"Category '{name}' not found"}), 404
+    
+    files = []
+    
+    for pdf_file in sorted(category_path.glob("*.pdf")):
+        stat = pdf_file.stat()
+        file_id = generate_file_id(name, pdf_file.name)
+        status = get_file_status(pdf_file.name, name)
+        
+        # Get file creation/upload time (use mtime as closest approximation)
+        upload_date = datetime.fromtimestamp(stat.st_mtime).isoformat()
+        
+        files.append({
+            "id": file_id,
+            "filename": pdf_file.name,
+            "category": name,
+            "status": status,
+            "size": stat.st_size,
+            "upload_date": upload_date
+        })
+    
+    return jsonify({
+        "category": name,
+        "files": files,
+        "total_count": len(files)
+    })
+
+
 if __name__ == '__main__':
     # Bind to 0.0.0.0 for LAN accessibility
     app.run(host='0.0.0.0', port=5000, debug=True)
