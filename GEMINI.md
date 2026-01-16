@@ -21,6 +21,7 @@ This applies to:
 - Frontend is vanilla HTML/CSS/JS in `frontend/` directory
 - PDF processing uses Docling (vision) and vLLM/Ollama (logic) via `LocalPDFProcessor`
 - Flask serves static files from `../frontend` relative to `backend/app.py`
+- **LLM Model**: Use `nemotron-large-ctx:latest` via Ollama for Phase 2 processing
 
 ### Directory Structure
 - Input PDFs: `data/input/<category>/`
@@ -45,3 +46,4 @@ File status derived from existence checks (in this order):
 - Use `Queue` from stdlib for thread-safe task queue
 - Use `processing_lock` when reading/writing shared `processing_state`
 - Lazy-initialize processor with global `_processor` variable
+- **Processing time**: One file can take up to 10 minutes to process (Phase 1: PDF to Markdown via Docling, Phase 2: Markdown to JSON via LLM)

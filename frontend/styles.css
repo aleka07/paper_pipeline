@@ -682,7 +682,38 @@ body {
     padding: 0.25rem 0.75rem;
     border-radius: 9999px;
     font-size: 0.75rem;
+    border: 1px solid transparent;
+    transition: all var(--transition-speed);
 }
+
+.tag:hover {
+    background: var(--color-accent-subtle);
+    border-color: var(--color-accent);
+}
+
+.no-data {
+    color: var(--color-text-muted);
+    font-style: italic;
+    font-size: 0.875rem;
+}
+
+.result-text {
+    font-size: 0.875rem;
+    line-height: 1.7;
+    color: var(--color-text-secondary);
+}
+
+.result-list {
+    font-size: 0.875rem;
+    line-height: 1.7;
+    color: var(--color-text-secondary);
+    padding-left: 1.25rem;
+}
+
+.result-list li {
+    margin-bottom: 0.5rem;
+}
+
 
 .panel-footer {
     padding: 1rem;

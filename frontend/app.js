@@ -193,15 +193,138 @@ function formatDate(isoString) {
     return new Date(isoString).toLocaleDateString();
 }
 
-// File Results
+// File Results - Current file data for panel actions
+let currentPanelFile = null;
+let currentPanelData = null;
+
 async function viewFileResults(file) {
     if (file.status !== 'completed') {
         showToast('File not yet processed', 'warning');
         return;
     }
 
+    // Show loading state
     elements.resultsPanel.classList.remove('hidden');
-    // Load and display results - implemented in US-019
+    document.getElementById('results-title').textContent = 'Loading...';
+
+    try {
+        // Fetch the JSON results
+        const data = await fetchAPI(`/results/${file.id}`);
+
+        // Store for panel actions (copy/download)
+        currentPanelFile = file;
+        currentPanelData = data;
+
+        // Populate the panel
+        renderResultsPanel(data, file);
+    } catch (error) {
+        console.error('Failed to load results:', error);
+        showToast('Failed to load results', 'error');
+        elements.resultsPanel.classList.add('hidden');
+    }
+}
+
+function renderResultsPanel(data, file) {
+    // Set panel title
+    document.getElementById('results-title').textContent = file.filename;
+
+    // Metadata section
+    document.getElementById('result-title').textContent = data.title || '-';
+
+    // Authors - handle array or string
+    const authors = data.authors;
+    if (Array.isArray(authors)) {
+        document.getElementById('result-authors').textContent = authors.join(', ') || '-';
+    } else {
+        document.getElementById('result-authors').textContent = authors || '-';
+    }
+
+    // Year - handle various formats
+    const year = data.year || data.publication_year || data.date;
+    document.getElementById('result-year').textContent = year || '-';
+
+    // Venue
+    const venue = data.venue || data.journal || data.conference || data.publication;
+    document.getElementById('result-venue').textContent = venue || '-';
+
+    // Keywords as tags
+    const keywordsContainer = document.getElementById('result-keywords');
+    keywordsContainer.innerHTML = '';
+    const keywords = data.keywords || [];
+    if (Array.isArray(keywords) && keywords.length > 0) {
+        keywords.forEach(keyword => {
+            const tag = document.createElement('span');
+            tag.className = 'tag';
+            tag.textContent = keyword;
+            keywordsContainer.appendChild(tag);
+        });
+    } else {
+        keywordsContainer.innerHTML = '<span class="no-data">No keywords</span>';
+    }
+
+    // Summary
+    const summary = data.summary || data.abstract || '-';
+    document.getElementById('result-summary').textContent = summary;
+
+    // Methodology
+    const methodology = data.methodology || data.methods || '-';
+    document.getElementById('result-methodology').textContent = methodology;
+
+    // Key Findings as list
+    const findingsContainer = document.getElementById('result-findings');
+    findingsContainer.innerHTML = '';
+    const findings = data.key_findings || data.findings || data.conclusions || [];
+    if (Array.isArray(findings) && findings.length > 0) {
+        findings.forEach(finding => {
+            const li = document.createElement('li');
+            li.textContent = finding;
+            findingsContainer.appendChild(li);
+        });
+    } else if (typeof findings === 'string' && findings) {
+        const li = document.createElement('li');
+        li.textContent = findings;
+        findingsContainer.appendChild(li);
+    } else {
+        findingsContainer.innerHTML = '<li class="no-data">No findings available</li>';
+    }
+}
+
+function copyJsonToClipboard() {
+    if (!currentPanelData) {
+        showToast('No data to copy', 'warning');
+        return;
+    }
+
+    const jsonStr = JSON.stringify(currentPanelData, null, 2);
+    navigator.clipboard.writeText(jsonStr).then(() => {
+        showToast('JSON copied to clipboard', 'success');
+    }).catch(err => {
+        console.error('Failed to copy:', err);
+        showToast('Failed to copy to clipboard', 'error');
+    });
+}
+
+function downloadJson() {
+    if (!currentPanelData || !currentPanelFile) {
+        showToast('No data to download', 'warning');
+        return;
+    }
+
+    const jsonStr = JSON.stringify(currentPanelData, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    // Use filename without extension + .json
+    const baseName = currentPanelFile.filename.replace(/\.pdf$/i, '');
+    a.download = `${baseName}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    showToast('JSON downloaded', 'success');
 }
 
 // Context Menu
@@ -283,7 +406,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // Close results panel
     elements.closePanelBtn?.addEventListener('click', () => {
         elements.resultsPanel.classList.add('hidden');
+        currentPanelFile = null;
+        currentPanelData = null;
     });
+
+    // Copy JSON button
+    document.getElementById('copy-json-btn')?.addEventListener('click', copyJsonToClipboard);
+
+    // Download JSON button
+    document.getElementById('download-json-btn')?.addEventListener('click', downloadJson);
 
     // Upload zone drag and drop
     const uploadZone = elements.uploadZone;

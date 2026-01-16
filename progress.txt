@@ -296,3 +296,23 @@ Conversation: 4b75b27b-54e3-4391-a5b8-d431170a4605
   - Track previous status to detect state transitions (e.g., running → idle for auto-refresh)
   - Direct `fetch()` call in polling avoids double toast on errors vs using `fetchAPI()` helper
 ---
+
+## 2026-01-16T14:45 - US-019: Results Viewer Panel
+Conversation: 064f21a1-0a48-477a-963d-8f51ca83a925
+- Implemented `viewFileResults()` to fetch JSON results from `/api/results/<file_id>`
+- Implemented `renderResultsPanel()` to populate panel with extracted data:
+  - Metadata: title, authors (array or string), year, venue
+  - Keywords displayed as styled `.tag` elements
+  - Summary, Methodology sections with text content
+  - Key Findings rendered as list items
+- Added `copyJsonToClipboard()` using Clipboard API with toast feedback
+- Added `downloadJson()` creating downloadable JSON blob with filename
+- Enhanced CSS: added hover effects to `.tag`, styled `.no-data`, `.result-text`, `.result-list`
+- Added event listeners for Copy JSON and Download buttons
+- Browser verified: panel slides in, all sections populate correctly, buttons work
+- Files changed: `frontend/app.js`, `frontend/styles.css`, `prd.json`
+- **Learnings for future iterations:**
+  - Handle multiple field names for same data (e.g., `summary` vs `abstract`, `year` vs `publication_year`)
+  - Store current panel data in module-level variables for button actions
+  - Use `Array.isArray()` checks for flexible JSON structure handling
+---
