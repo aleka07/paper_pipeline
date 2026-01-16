@@ -772,6 +772,120 @@ def get_results_raw(file_id: str):
         }), 500
 
 
+# ============= File Delete and Reprocess API Endpoints =============
+
+@app.route('/api/files/<file_id>', methods=['DELETE'])
+def delete_file(file_id: str):
+    """Delete a PDF file and all associated outputs (markdown and JSON)."""
+    result = find_file_by_id(file_id)
+    
+    if result is None:
+        return jsonify({"error": f"File with ID '{file_id}' not found"}), 404
+    
+    pdf_path, category = result
+    base_name = pdf_path.stem
+    
+    # Paths for associated files
+    md_path = MARKDOWN_DIR / category / f"{base_name}.md"
+    json_path = OUTPUT_DIR / category / f"{base_name}.json"
+    
+    deleted_files = []
+    errors = []
+    
+    # Delete PDF
+    try:
+        if pdf_path.exists():
+            pdf_path.unlink()
+            deleted_files.append(f"input/{category}/{pdf_path.name}")
+    except OSError as e:
+        errors.append(f"Failed to delete PDF: {str(e)}")
+    
+    # Delete markdown output
+    try:
+        if md_path.exists():
+            md_path.unlink()
+            deleted_files.append(f"markdown/{category}/{base_name}.md")
+    except OSError as e:
+        errors.append(f"Failed to delete markdown: {str(e)}")
+    
+    # Delete JSON output
+    try:
+        if json_path.exists():
+            json_path.unlink()
+            deleted_files.append(f"output/{category}/{base_name}.json")
+    except OSError as e:
+        errors.append(f"Failed to delete JSON: {str(e)}")
+    
+    if errors:
+        return jsonify({
+            "message": "File deletion completed with errors",
+            "file_id": file_id,
+            "filename": pdf_path.name,
+            "category": category,
+            "deleted": deleted_files,
+            "errors": errors
+        }), 207  # Multi-Status
+    
+    return jsonify({
+        "message": "File and all outputs deleted successfully",
+        "file_id": file_id,
+        "filename": pdf_path.name,
+        "category": category,
+        "deleted": deleted_files
+    }), 200
+
+
+@app.route('/api/files/<file_id>/reprocess', methods=['POST'])
+def reprocess_file(file_id: str):
+    """Clear outputs and queue file for reprocessing."""
+    result = find_file_by_id(file_id)
+    
+    if result is None:
+        return jsonify({"error": f"File with ID '{file_id}' not found"}), 404
+    
+    pdf_path, category = result
+    base_name = pdf_path.stem
+    
+    # Paths for associated files
+    md_path = MARKDOWN_DIR / category / f"{base_name}.md"
+    json_path = OUTPUT_DIR / category / f"{base_name}.json"
+    
+    cleared_files = []
+    
+    # Clear markdown output
+    try:
+        if md_path.exists():
+            md_path.unlink()
+            cleared_files.append(f"markdown/{category}/{base_name}.md")
+    except OSError as e:
+        return jsonify({
+            "error": f"Failed to clear markdown output: {str(e)}"
+        }), 500
+    
+    # Clear JSON output
+    try:
+        if json_path.exists():
+            json_path.unlink()
+            cleared_files.append(f"output/{category}/{base_name}.json")
+    except OSError as e:
+        return jsonify({
+            "error": f"Failed to clear JSON output: {str(e)}"
+        }), 500
+    
+    # Queue file for reprocessing
+    job_id = create_job(1)
+    queue_files_for_processing([(pdf_path, category)], job_id)
+    
+    return jsonify({
+        "message": "File outputs cleared and queued for reprocessing",
+        "job_id": job_id,
+        "file_id": file_id,
+        "filename": pdf_path.name,
+        "category": category,
+        "cleared_outputs": cleared_files
+    }), 202
+
+
 if __name__ == '__main__':
     # Bind to 0.0.0.0 for LAN accessibility
     app.run(host='0.0.0.0', port=5000, debug=True)

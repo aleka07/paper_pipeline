@@ -119,3 +119,17 @@ Conversation: 5d6eed17-c7ba-40c0-a753-cdb4cfdc773e
   - Use Flask's `Response` class with `Content-Disposition` header for file downloads
   - json.load() for parsed content, raw file read for download endpoint
 ---
+
+## 2026-01-16T13:40 - US-009: File Delete and Reprocess API
+Conversation: 61a74357-aa9d-45d7-8a2e-16d58534493d
+- Implemented DELETE /api/files/<file_id> endpoint - removes PDF and all associated outputs (md, json)
+- Implemented POST /api/files/<file_id>/reprocess endpoint - clears outputs and queues for reprocessing
+- Returns deleted/cleared file paths in response, with 207 Multi-Status if partial deletion
+- Returns job_id for reprocess to track processing status
+- Pyright typecheck passes with 0 errors
+- Files changed: `backend/app.py`
+- **Learnings for future iterations:**
+  - Use `path.unlink()` for file deletion (pathlib method)
+  - 207 Multi-Status is appropriate for partial success scenarios
+  - Reprocess should clear both .md and .json before queuing to ensure full pipeline runs
+---
