@@ -96,6 +96,43 @@ python main.py --all
 
 ---
 
+## Web Interface
+
+The pipeline includes a modern web UI for managing papers via your browser.
+
+### Start the Server
+
+```bash
+conda activate paper-pipeline
+cd backend
+python app.py
+```
+
+The server starts on `http://0.0.0.0:5000` (accessible from any device on your LAN).
+
+### Access the UI
+
+| Device | URL |
+|--------|-----|
+| Same machine | http://localhost:5000 |
+| Other devices on LAN | http://YOUR_IP:5000 |
+
+### Features
+
+- 📁 **Category Management** - Create, rename, delete categories
+- 📤 **Drag & Drop Upload** - Upload PDFs via drag-and-drop or file picker
+- ⚡ **One-Click Processing** - Process individual files, categories, or all at once
+- 📊 **Real-time Status** - Live progress tracking with pause/resume/cancel
+- 🔍 **Instant Search** - Full-text search across all processed papers
+- 📋 **Results Viewer** - View extracted metadata, keywords, and findings
+- 📦 **Batch Export** - Export categories as ZIP files
+
+### Processing Time
+
+> **Note:** Processing takes **5-15 minutes per file** (Phase 1: PDF→Markdown with vision analysis, Phase 2: Markdown→JSON with LLM).
+
+---
+
 ## Directory Structure
 
 ```
