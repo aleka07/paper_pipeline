@@ -592,6 +592,33 @@ body {
     margin-top: 0.5rem;
 }
 
+.file-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.file-menu-btn {
+    opacity: 0;
+    transition: opacity var(--transition-speed);
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+}
+
+.file-card:hover .file-menu-btn {
+    opacity: 1;
+}
+
+.file-menu-btn:hover {
+    background: var(--color-bg-tertiary);
+}
+
 /* Empty States - Enhanced */
 .empty-state {
     text-align: center;
@@ -952,6 +979,20 @@ body {
 
 .context-menu-item.danger {
     color: var(--color-danger);
+}
+
+.context-menu-item.danger:hover {
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.context-menu-item.disabled {
+    color: var(--color-text-muted);
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.context-menu-item.disabled:hover {
+    background: none;
 }
 
 .context-menu-divider {

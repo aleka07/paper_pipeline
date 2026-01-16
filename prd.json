@@ -319,7 +319,7 @@
                 "Verify in browser using browser tool"
             ],
             "priority": 21,
-            "passes": false,
+            "passes": true,
             "notes": ""
         },
         {

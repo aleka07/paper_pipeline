@@ -293,14 +293,36 @@ function renderFiles() {
         card.innerHTML = `
             <div class="file-card-header">
                 <span class="file-name">${file.filename}</span>
-                <span class="status-badge ${file.status}">${file.status}</span>
+                <div class="file-card-actions">
+                    <span class="status-badge ${file.status}">${file.status}</span>
+                    <button class="btn btn-icon btn-small file-menu-btn" aria-label="File menu">
+                        <span class="icon">⋮</span>
+                    </button>
+                </div>
             </div>
             <div class="file-meta">
                 ${formatFileSize(file.size)} • ${formatDate(file.upload_date)}
             </div>
         `;
-        card.addEventListener('click', () => viewFileResults(file));
+
+        // Click on card to view results
+        card.addEventListener('click', (e) => {
+            // Don't trigger if clicking the menu button
+            if (!e.target.closest('.file-menu-btn')) {
+                viewFileResults(file);
+            }
+        });
+
+        // Right-click for context menu
         card.addEventListener('contextmenu', (e) => showContextMenu(e, file));
+
+        // Menu button click (for touch devices)
+        const menuBtn = card.querySelector('.file-menu-btn');
+        menuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showContextMenu(e, file);
+        });
+
         grid.appendChild(card);
     });
 }
@@ -477,13 +499,192 @@ function downloadJson() {
 }
 
 // Context Menu
+let currentContextFile = null;
+
 function showContextMenu(event, file) {
     event.preventDefault();
+    event.stopPropagation();
+
+    currentContextFile = file;
+
     const menu = document.getElementById('context-menu');
     menu.classList.remove('hidden');
-    menu.style.left = `${event.clientX}px`;
-    menu.style.top = `${event.clientY}px`;
+
+    // Position menu, ensuring it doesn't go off-screen
+    let x = event.clientX;
+    let y = event.clientY;
+
+    // Adjust if menu would go off right edge
+    const menuWidth = 200;
+    if (x + menuWidth > window.innerWidth) {
+        x = window.innerWidth - menuWidth - 10;
+    }
+
+    // Adjust if menu would go off bottom edge
+    const menuHeight = 280;
+    if (y + menuHeight > window.innerHeight) {
+        y = window.innerHeight - menuHeight - 10;
+    }
+
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
     menu.dataset.fileId = file.id;
+
+    // Update menu items based on file status
+    updateContextMenuItems(file);
+}
+
+function updateContextMenuItems(file) {
+    const viewBtn = document.querySelector('[data-action="view"]');
+    const downloadJsonBtn = document.querySelector('[data-action="download-json"]');
+
+    // Disable view and download JSON for non-completed files
+    if (file.status !== 'completed') {
+        viewBtn?.classList.add('disabled');
+        downloadJsonBtn?.classList.add('disabled');
+    } else {
+        viewBtn?.classList.remove('disabled');
+        downloadJsonBtn?.classList.remove('disabled');
+    }
+}
+
+function hideContextMenu() {
+    document.getElementById('context-menu').classList.add('hidden');
+    currentContextFile = null;
+}
+
+// Context Menu Action Handlers
+async function handleContextMenuAction(action) {
+    if (!currentContextFile) {
+        showToast('No file selected', 'warning');
+        return;
+    }
+
+    const file = currentContextFile;
+    hideContextMenu();
+
+    switch (action) {
+        case 'view':
+            viewFileResults(file);
+            break;
+        case 'process':
+            await processFile(file.id);
+            break;
+        case 'reprocess':
+            await reprocessFile(file.id);
+            break;
+        case 'download-json':
+            await downloadFileJson(file.id, file.filename);
+            break;
+        case 'download-pdf':
+            downloadFilePdf(file.id, file.filename);
+            break;
+        case 'delete':
+            showDeleteConfirmModal(file);
+            break;
+        default:
+            console.warn('Unknown context menu action:', action);
+    }
+}
+
+async function reprocessFile(fileId) {
+    try {
+        const result = await fetchAPI(`/files/${fileId}/reprocess`, { method: 'POST' });
+        showToast('File queued for reprocessing', 'success');
+        // Refresh the file list
+        if (state.currentCategory) {
+            await loadFiles(state.currentCategory);
+        }
+        return result;
+    } catch (error) {
+        showToast('Failed to reprocess file', 'error');
+        throw error;
+    }
+}
+
+async function downloadFileJson(fileId, filename) {
+    try {
+        const response = await fetch(`${API_BASE}/results/${fileId}/raw`);
+
+        if (!response.ok) {
+            if (response.status === 404) {
+                showToast('File not yet processed', 'warning');
+            } else {
+                showToast('Failed to download JSON', 'error');
+            }
+            return;
+        }
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename.replace(/\.pdf$/i, '.json');
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        showToast('JSON downloaded', 'success');
+    } catch (error) {
+        console.error('Download JSON error:', error);
+        showToast('Failed to download JSON', 'error');
+    }
+}
+
+function downloadFilePdf(fileId, filename) {
+    // Trigger direct download via browser
+    const a = document.createElement('a');
+    a.href = `${API_BASE}/files/${fileId}/pdf`;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+
+    showToast('PDF download started', 'info');
+}
+
+// Delete Confirmation Modal
+let pendingDeleteFile = null;
+
+function showDeleteConfirmModal(file) {
+    pendingDeleteFile = file;
+
+    const modal = document.getElementById('delete-confirm-modal');
+    const confirmText = document.getElementById('delete-confirm-text');
+
+    confirmText.textContent = `Are you sure you want to delete "${file.filename}"? This will remove the PDF and all associated output files. This action cannot be undone.`;
+
+    modal.classList.remove('hidden');
+}
+
+function hideDeleteConfirmModal() {
+    document.getElementById('delete-confirm-modal').classList.add('hidden');
+    pendingDeleteFile = null;
+}
+
+async function confirmDelete() {
+    if (!pendingDeleteFile) {
+        hideDeleteConfirmModal();
+        return;
+    }
+
+    const file = pendingDeleteFile;
+    hideDeleteConfirmModal();
+
+    try {
+        await fetchAPI(`/files/${file.id}`, { method: 'DELETE' });
+        showToast(`"${file.filename}" deleted successfully`, 'success');
+
+        // Refresh the file list and categories
+        if (state.currentCategory) {
+            await loadFiles(state.currentCategory);
+            await loadCategories();
+        }
+    } catch (error) {
+        showToast('Failed to delete file', 'error');
+    }
 }
 
 // Event Listeners
@@ -635,6 +836,29 @@ document.addEventListener('DOMContentLoaded', () => {
     // Batch Process Selected button
     document.getElementById('batch-process-btn')?.addEventListener('click', () => {
         processSelectedFiles();
+    });
+
+    // Context Menu Items
+    document.querySelectorAll('.context-menu-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const action = item.dataset.action;
+            if (action && !item.classList.contains('disabled')) {
+                handleContextMenuAction(action);
+            }
+        });
+    });
+
+    // Also add a menu button to each file card (for mobile/touch devices)
+    // This is handled dynamically in renderFiles()
+
+    // Delete Confirmation Modal
+    document.getElementById('cancel-delete-btn')?.addEventListener('click', () => {
+        hideDeleteConfirmModal();
+    });
+
+    document.getElementById('confirm-delete-btn')?.addEventListener('click', () => {
+        confirmDelete();
     });
 });
 

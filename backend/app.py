@@ -884,6 +884,37 @@ def reprocess_file(file_id: str):
     }), 202
 
 
+@app.route('/api/files/<file_id>/pdf', methods=['GET'])
+def download_pdf(file_id: str):
+    """Download the original PDF file."""
+    from flask import Response
+    
+    result = find_file_by_id(file_id)
+    
+    if result is None:
+        return jsonify({"error": f"File with ID '{file_id}' not found"}), 404
+    
+    pdf_path, category = result
+    
+    if not pdf_path.exists():
+        return jsonify({"error": "PDF file not found"}), 404
+    
+    try:
+        with open(pdf_path, 'rb') as f:
+            content = f.read()
+        
+        return Response(
+            content,
+            mimetype='application/pdf',
+            headers={
+                'Content-Disposition': f'attachment; filename="{pdf_path.name}"',
+                'Content-Length': str(len(content))
+            }
+        )
+    except OSError as e:
+        return jsonify({"error": f"Failed to read PDF file: {str(e)}"}), 500
+
+
 # ============= Search and Filter API Endpoints =============
 
 def search_in_json_result(json_data: dict, query: str) -> dict[str, list[str]]:
