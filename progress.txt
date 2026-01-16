@@ -279,3 +279,20 @@ Conversation: e956035a-ed4e-4c22-b7b7-5216f68a8726
   - Use toggle pattern for Pause/Resume: check current state then call appropriate function
   - Process controls show immediate toast feedback even before status polling confirms
 ---
+
+## 2026-01-16T14:40 - US-018: Processing Status Display
+Conversation: 4b75b27b-54e3-4391-a5b8-d431170a4605
+- Implemented status polling every 2 seconds via `fetchStatus()` function
+- Status bar shows: current file, phase (1 or 2), queue count
+- `startStatusPolling()` called on DOMContentLoaded
+- Status displays "Idle" when not processing, "Paused" when paused
+- Running state shows "Processing: {filename} (Phase 1/2)"
+- Connection banner shows/hides based on API reachability
+- Auto-refresh file list when processing completes (status changes from running to idle)
+- Browser verified: status bar displays correctly, no console errors
+- Files changed: `frontend/app.js`, `prd.json`
+- **Learnings for future iterations:**
+  - Use `setInterval()` for polling with `clearInterval()` for cleanup
+  - Track previous status to detect state transitions (e.g., running → idle for auto-refresh)
+  - Direct `fetch()` call in polling avoids double toast on errors vs using `fetchAPI()` helper
+---

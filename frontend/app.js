@@ -217,6 +217,7 @@ function showContextMenu(event, file) {
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
     loadCategories();
+    startStatusPolling();
 
     // Hide context menu on click outside
     document.addEventListener('click', () => {
@@ -558,9 +559,13 @@ function updateProcessingUI(status) {
 
     if (procStatus === 'running') {
         statusDot.classList.add('running');
-        statusText.textContent = state.processingStatus.current_file
-            ? `Processing: ${state.processingStatus.current_file}`
-            : 'Processing...';
+        let statusMessage = 'Processing...';
+        if (state.processingStatus.current_file) {
+            const phase = state.processingStatus.current_phase;
+            const phaseText = phase ? ` (Phase ${phase})` : '';
+            statusMessage = `Processing: ${state.processingStatus.current_file}${phaseText}`;
+        }
+        statusText.textContent = statusMessage;
         elements.pauseBtn.disabled = false;
         elements.pauseBtn.innerHTML = '<span class="icon">⏸️</span> Pause';
         elements.cancelBtn.disabled = false;
@@ -629,6 +634,68 @@ function updateBatchActionBar() {
     if (selectAllCheckbox && state.files.length > 0) {
         selectAllCheckbox.checked = state.selectedFiles.size === state.files.length;
         selectAllCheckbox.indeterminate = state.selectedFiles.size > 0 && state.selectedFiles.size < state.files.length;
+    }
+}
+
+// Status Polling
+let statusPollInterval = null;
+
+async function fetchStatus() {
+    try {
+        const response = await fetch(`${API_BASE}/status`);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        const status = await response.json();
+        updateProcessingUI(status);
+
+        // Refresh file list if status changed to idle (processing completed)
+        if (state.processingStatus.status === 'running' && status.status === 'idle') {
+            if (state.currentCategory) {
+                await loadFiles(state.currentCategory);
+                await loadCategories();
+            }
+        }
+
+        state.isConnected = true;
+        hideConnectionBanner();
+    } catch (error) {
+        state.isConnected = false;
+        showConnectionBanner();
+    }
+}
+
+function startStatusPolling() {
+    // Clear any existing interval
+    if (statusPollInterval) {
+        clearInterval(statusPollInterval);
+    }
+
+    // Fetch immediately
+    fetchStatus();
+
+    // Poll every 2 seconds
+    statusPollInterval = setInterval(fetchStatus, 2000);
+}
+
+function stopStatusPolling() {
+    if (statusPollInterval) {
+        clearInterval(statusPollInterval);
+        statusPollInterval = null;
+    }
+}
+
+function showConnectionBanner() {
+    const banner = document.getElementById('connection-banner');
+    if (banner) {
+        banner.classList.remove('hidden');
+    }
+}
+
+function hideConnectionBanner() {
+    const banner = document.getElementById('connection-banner');
+    if (banner) {
+        banner.classList.add('hidden');
     }
 }
 
