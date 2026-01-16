@@ -271,6 +271,14 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.fileInput.click();
     });
 
+    // File input change handler
+    elements.fileInput?.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            handleFileUpload(Array.from(e.target.files));
+            e.target.value = ''; // Reset input for future uploads
+        }
+    });
+
     // Close results panel
     elements.closePanelBtn?.addEventListener('click', () => {
         elements.resultsPanel.classList.add('hidden');
@@ -284,17 +292,157 @@ document.addEventListener('DOMContentLoaded', () => {
             uploadZone.classList.add('dragover');
         });
 
-        uploadZone.addEventListener('dragleave', () => {
-            uploadZone.classList.remove('dragover');
+        uploadZone.addEventListener('dragleave', (e) => {
+            // Only remove dragover if leaving the upload zone entirely
+            if (!uploadZone.contains(e.relatedTarget)) {
+                uploadZone.classList.remove('dragover');
+            }
         });
 
         uploadZone.addEventListener('drop', (e) => {
             e.preventDefault();
             uploadZone.classList.remove('dragover');
-            // Handle file drop - implemented in US-016
+            const files = Array.from(e.dataTransfer.files);
+            handleFileUpload(files);
         });
     }
 });
+
+// File Upload Functions
+function validatePdfFile(file) {
+    // Check extension
+    const ext = file.name.toLowerCase().split('.').pop();
+    if (ext !== 'pdf') {
+        return { valid: false, error: `"${file.name}" is not a PDF file` };
+    }
+
+    // Check MIME type (allow octet-stream as fallback)
+    const validMimeTypes = ['application/pdf', 'application/octet-stream'];
+    if (!validMimeTypes.includes(file.type) && file.type !== '') {
+        return { valid: false, error: `"${file.name}" has invalid MIME type: ${file.type}` };
+    }
+
+    // Check size (100MB limit)
+    const maxSize = 100 * 1024 * 1024;
+    if (file.size > maxSize) {
+        return { valid: false, error: `"${file.name}" exceeds 100MB limit` };
+    }
+
+    return { valid: true };
+}
+
+async function handleFileUpload(files) {
+    if (!state.currentCategory) {
+        showToast('Please select a category first', 'warning');
+        return;
+    }
+
+    // Filter and validate PDF files
+    const pdfFiles = [];
+    const errors = [];
+
+    for (const file of files) {
+        const validation = validatePdfFile(file);
+        if (validation.valid) {
+            pdfFiles.push(file);
+        } else {
+            errors.push(validation.error);
+        }
+    }
+
+    // Show validation errors
+    if (errors.length > 0) {
+        errors.forEach(err => showToast(err, 'error'));
+    }
+
+    if (pdfFiles.length === 0) {
+        return;
+    }
+
+    // Upload each file with progress tracking
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const file of pdfFiles) {
+        try {
+            await uploadFile(file, state.currentCategory);
+            successCount++;
+        } catch (error) {
+            failCount++;
+            showToast(`Failed to upload "${file.name}": ${error.message}`, 'error');
+        }
+    }
+
+    // Show summary toast
+    if (successCount > 0) {
+        showToast(`Uploaded ${successCount} file${successCount > 1 ? 's' : ''} successfully`, 'success');
+    }
+
+    // Refresh file list and categories
+    await loadFiles(state.currentCategory);
+    await loadCategories();
+}
+
+function uploadFile(file, category) {
+    return new Promise((resolve, reject) => {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const xhr = new XMLHttpRequest();
+
+        // Show upload progress in upload zone
+        const uploadZone = elements.uploadZone;
+        const originalContent = uploadZone.innerHTML;
+
+        xhr.upload.addEventListener('progress', (e) => {
+            if (e.lengthComputable) {
+                const percent = Math.round((e.loaded / e.total) * 100);
+                uploadZone.innerHTML = `
+                    <div class="upload-progress">
+                        <span class="upload-icon">📤</span>
+                        <p class="upload-text">Uploading ${file.name}</p>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${percent}%"></div>
+                        </div>
+                        <p class="upload-hint">${percent}%</p>
+                    </div>
+                `;
+            }
+        });
+
+        xhr.addEventListener('load', () => {
+            uploadZone.innerHTML = originalContent;
+            // Re-attach browse button event
+            const browseBtn = uploadZone.querySelector('#browse-files-btn');
+            if (browseBtn) {
+                browseBtn.addEventListener('click', () => elements.fileInput.click());
+            }
+
+            if (xhr.status >= 200 && xhr.status < 300) {
+                resolve(JSON.parse(xhr.responseText));
+            } else {
+                let errorMsg = 'Upload failed';
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    errorMsg = response.error || errorMsg;
+                } catch (e) { }
+                reject(new Error(errorMsg));
+            }
+        });
+
+        xhr.addEventListener('error', () => {
+            uploadZone.innerHTML = originalContent;
+            const browseBtn = uploadZone.querySelector('#browse-files-btn');
+            if (browseBtn) {
+                browseBtn.addEventListener('click', () => elements.fileInput.click());
+            }
+            reject(new Error('Network error'));
+        });
+
+        xhr.open('POST', `${API_BASE}/categories/${category}/upload`);
+        xhr.send(formData);
+    });
+}
 
 // Status Polling (placeholder - implemented in US-018)
 console.log('Paper Pipeline Frontend initialized');

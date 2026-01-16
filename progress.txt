@@ -239,3 +239,22 @@ Conversation: d0ae03e6-c1c5-4ee3-9e18-e101f0c1a62c
   - Browser verification is essential even for "complete" features
   - CSS hover effects verified via stylesheet inspection
 ---
+
+## 2026-01-16T14:25 - US-016: File Upload UI
+Conversation: 04513a74-729c-4cca-96e2-8ef47cc1743a
+- Implemented drag-and-drop file upload functionality in `app.js`
+- PDF validation: checks file extension (.pdf), MIME type (allows application/pdf and octet-stream), and 100MB size limit
+- Click-to-browse file picker alternative via hidden file input
+- Upload progress indicator using XMLHttpRequest upload progress events
+- Progress bar shows percentage with animated gradient fill
+- Automatic file list and category refresh after upload
+- Added CSS styles for `.upload-progress`, `.progress-bar`, `.progress-fill` in `styles.css`
+- Fixed dragleave event to only trigger when leaving upload zone entirely
+- Browser verification passed: upload zone visible, browse button works, styling correct
+- Files changed: `frontend/app.js`, `frontend/styles.css`, `prd.json`
+- **Learnings for future iterations:**
+  - Use XMLHttpRequest instead of fetch() for upload progress tracking
+  - Reset file input value after upload to allow re-uploading same file
+  - Store and restore original HTML content when showing progress in upload zone
+  - Re-attach event listeners when restoring dynamic HTML content
+---
