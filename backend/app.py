@@ -241,6 +241,90 @@ def get_status():
     return jsonify(status_response)
 
 
+# ============= Processing Control API Endpoints =============
+
+@app.route('/api/process/pause', methods=['POST'])
+def pause_processing():
+    """Pause processing after the current file completes."""
+    with processing_lock:
+        if processing_state["status"] == "idle":
+            return jsonify({
+                "error": "No processing in progress to pause"
+            }), 400
+        
+        if processing_state["status"] == "paused":
+            return jsonify({
+                "message": "Processing is already paused",
+                "status": "paused"
+            }), 200
+        
+        processing_state["status"] = "paused"
+        return jsonify({
+            "message": "Processing will pause after current file completes",
+            "status": "paused",
+            "current_file": processing_state["current_file"]
+        }), 200
+
+
+@app.route('/api/process/resume', methods=['POST'])
+def resume_processing():
+    """Resume paused processing."""
+    with processing_lock:
+        if processing_state["status"] == "idle":
+            return jsonify({
+                "error": "No processing in progress to resume"
+            }), 400
+        
+        if processing_state["status"] == "running":
+            return jsonify({
+                "message": "Processing is already running",
+                "status": "running"
+            }), 200
+        
+        processing_state["status"] = "running"
+        return jsonify({
+            "message": "Processing resumed",
+            "status": "running",
+            "queue_length": processing_state["queue_length"]
+        }), 200
+
+
+@app.route('/api/process/cancel', methods=['POST'])
+def cancel_processing():
+    """Cancel processing and clear the queue."""
+    global processing_queue
+    
+    with processing_lock:
+        if processing_state["status"] == "idle":
+            return jsonify({
+                "message": "No processing in progress",
+                "status": "idle"
+            }), 200
+        
+        # Clear the queue by creating a new empty queue
+        items_cleared = processing_queue.qsize()
+        
+        # Drain the queue
+        while not processing_queue.empty():
+            try:
+                processing_queue.get_nowait()
+                processing_queue.task_done()
+            except Exception:
+                break
+        
+        # Reset state to idle
+        processing_state["status"] = "idle"
+        processing_state["current_file"] = None
+        processing_state["current_phase"] = None
+        processing_state["queue_length"] = 0
+        
+        return jsonify({
+            "message": "Processing cancelled and queue cleared",
+            "status": "idle",
+            "items_cleared": items_cleared
+        }), 200
+
+
 # ============= Category API Endpoints =============
 
 @app.route('/api/categories', methods=['GET'])
