@@ -306,6 +306,38 @@ document.addEventListener('DOMContentLoaded', () => {
             handleFileUpload(files);
         });
     }
+
+    // Processing Controls
+    // Process All button in header
+    elements.processAllBtn?.addEventListener('click', () => {
+        processAll();
+    });
+
+    // Process Category button
+    elements.processCategoryBtn?.addEventListener('click', () => {
+        if (state.currentCategory) {
+            processCategory(state.currentCategory);
+        }
+    });
+
+    // Pause/Resume button (toggle based on current state)
+    elements.pauseBtn?.addEventListener('click', () => {
+        if (state.processingStatus.status === 'paused') {
+            resumeProcessing();
+        } else {
+            pauseProcessing();
+        }
+    });
+
+    // Cancel button
+    elements.cancelBtn?.addEventListener('click', () => {
+        cancelProcessing();
+    });
+
+    // Batch Process Selected button
+    document.getElementById('batch-process-btn')?.addEventListener('click', () => {
+        processSelectedFiles();
+    });
 });
 
 // File Upload Functions
@@ -444,5 +476,160 @@ function uploadFile(file, category) {
     });
 }
 
-// Status Polling (placeholder - implemented in US-018)
+// Processing Controls
+async function processAll() {
+    try {
+        const result = await fetchAPI('/process/all', { method: 'POST' });
+        showToast('Processing started for all pending files', 'success');
+        return result;
+    } catch (error) {
+        showToast('Failed to start processing', 'error');
+        throw error;
+    }
+}
+
+async function processCategory(categoryName) {
+    if (!categoryName) {
+        showToast('No category selected', 'warning');
+        return;
+    }
+
+    try {
+        const result = await fetchAPI(`/process/category/${categoryName}`, { method: 'POST' });
+        showToast(`Processing started for category "${categoryName}"`, 'success');
+        return result;
+    } catch (error) {
+        showToast('Failed to start category processing', 'error');
+        throw error;
+    }
+}
+
+async function processFile(fileId) {
+    try {
+        const result = await fetchAPI(`/process/file/${fileId}`, { method: 'POST' });
+        showToast('Processing started', 'success');
+        return result;
+    } catch (error) {
+        showToast('Failed to start file processing', 'error');
+        throw error;
+    }
+}
+
+async function pauseProcessing() {
+    try {
+        await fetchAPI('/process/pause', { method: 'POST' });
+        showToast('Processing paused', 'info');
+        updateProcessingUI({ status: 'paused' });
+    } catch (error) {
+        showToast('Failed to pause processing', 'error');
+    }
+}
+
+async function resumeProcessing() {
+    try {
+        await fetchAPI('/process/resume', { method: 'POST' });
+        showToast('Processing resumed', 'success');
+        updateProcessingUI({ status: 'running' });
+    } catch (error) {
+        showToast('Failed to resume processing', 'error');
+    }
+}
+
+async function cancelProcessing() {
+    try {
+        await fetchAPI('/process/cancel', { method: 'POST' });
+        showToast('Processing cancelled', 'warning');
+        updateProcessingUI({ status: 'idle', queue_length: 0 });
+    } catch (error) {
+        showToast('Failed to cancel processing', 'error');
+    }
+}
+
+function updateProcessingUI(status) {
+    state.processingStatus = { ...state.processingStatus, ...status };
+    const { status: procStatus, queue_length } = state.processingStatus;
+
+    // Update status indicator
+    const statusDot = elements.statusDot;
+    const statusText = elements.statusText;
+
+    // Remove all status classes
+    statusDot.className = 'status-dot';
+
+    if (procStatus === 'running') {
+        statusDot.classList.add('running');
+        statusText.textContent = state.processingStatus.current_file
+            ? `Processing: ${state.processingStatus.current_file}`
+            : 'Processing...';
+        elements.pauseBtn.disabled = false;
+        elements.pauseBtn.innerHTML = '<span class="icon">⏸️</span> Pause';
+        elements.cancelBtn.disabled = false;
+    } else if (procStatus === 'paused') {
+        statusDot.classList.add('paused');
+        statusText.textContent = 'Paused';
+        elements.pauseBtn.disabled = false;
+        elements.pauseBtn.innerHTML = '<span class="icon">▶️</span> Resume';
+        elements.cancelBtn.disabled = false;
+    } else {
+        statusDot.classList.add('idle');
+        statusText.textContent = 'Idle';
+        elements.pauseBtn.disabled = true;
+        elements.pauseBtn.innerHTML = '<span class="icon">⏸️</span> Pause';
+        elements.cancelBtn.disabled = true;
+    }
+
+    // Update queue count
+    elements.queueCount.textContent = queue_length || 0;
+}
+
+// Process Selected Files (batch)
+async function processSelectedFiles() {
+    if (state.selectedFiles.size === 0) {
+        showToast('No files selected', 'warning');
+        return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const fileId of state.selectedFiles) {
+        try {
+            await fetchAPI(`/process/file/${fileId}`, { method: 'POST' });
+            successCount++;
+        } catch (error) {
+            failCount++;
+        }
+    }
+
+    if (successCount > 0) {
+        showToast(`Queued ${successCount} file${successCount > 1 ? 's' : ''} for processing`, 'success');
+    }
+    if (failCount > 0) {
+        showToast(`Failed to queue ${failCount} file${failCount > 1 ? 's' : ''}`, 'error');
+    }
+
+    state.selectedFiles.clear();
+    updateBatchActionBar();
+}
+
+// Batch Action Bar
+function updateBatchActionBar() {
+    const bar = document.getElementById('batch-action-bar');
+    const selectedCount = document.getElementById('selected-count');
+    const selectAllCheckbox = document.getElementById('select-all-checkbox');
+
+    if (state.selectedFiles.size > 0) {
+        bar.classList.remove('hidden');
+        selectedCount.textContent = state.selectedFiles.size;
+    } else {
+        bar.classList.add('hidden');
+    }
+
+    // Update select all checkbox state
+    if (selectAllCheckbox && state.files.length > 0) {
+        selectAllCheckbox.checked = state.selectedFiles.size === state.files.length;
+        selectAllCheckbox.indeterminate = state.selectedFiles.size > 0 && state.selectedFiles.size < state.files.length;
+    }
+}
+
 console.log('Paper Pipeline Frontend initialized');

@@ -258,3 +258,24 @@ Conversation: 04513a74-729c-4cca-96e2-8ef47cc1743a
   - Store and restore original HTML content when showing progress in upload zone
   - Re-attach event listeners when restoring dynamic HTML content
 ---
+
+## 2026-01-16T14:30 - US-017: Processing Controls UI
+Conversation: e956035a-ed4e-4c22-b7b7-5216f68a8726
+- Implemented processing control functions in `frontend/app.js`:
+  - `processAll()` - triggers processing for all pending files
+  - `processCategory(name)` - triggers processing for category
+  - `processFile(fileId)` - triggers processing for single file
+  - `pauseProcessing()` - pauses after current file
+  - `resumeProcessing()` - resumes paused processing
+  - `cancelProcessing()` - stops and clears queue
+- `updateProcessingUI(status)` - updates status bar, pause/cancel button states
+- Wired event listeners for Process All, Process Category, Pause/Resume toggle, Cancel, and Batch Process Selected buttons
+- Pause button toggles to Resume when processing is paused
+- Cancel and Pause buttons disabled when idle
+- Browser verified: all controls work with toast notifications
+- Files changed: `frontend/app.js`, `prd.json`
+- **Learnings for future iterations:**
+  - Status bar buttons should be enabled/disabled based on processing state
+  - Use toggle pattern for Pause/Resume: check current state then call appropriate function
+  - Process controls show immediate toast feedback even before status polling confirms
+---
