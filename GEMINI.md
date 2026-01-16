@@ -35,6 +35,8 @@ File status derived from existence checks (in this order):
 2. `.md` in `data/markdown/` → `markdown` (phase 1 done, needs phase 2)
 3. PDF exists only → `pending`
 
+**Important**: Output files (.md and .json) use the original PDF filename (without extension) so status detection works correctly.
+
 ### File Handling
 - File IDs: 12-char MD5 hash of `category/filename`
 - Use `secure_filename()` from werkzeug to prevent path traversal

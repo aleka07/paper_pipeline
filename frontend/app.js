@@ -100,6 +100,128 @@ async function loadCategories() {
     }
 }
 
+// Search functionality
+let searchDebounceTimer = null;
+let currentSearchQuery = '';
+
+function debounce(func, wait) {
+    return function executedFunction(...args) {
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(() => func.apply(this, args), wait);
+    };
+}
+
+async function performSearch(query) {
+    if (!query || query.trim().length < 2) {
+        hideSearchResults();
+        return;
+    }
+
+    currentSearchQuery = query.trim();
+
+    try {
+        const data = await fetchAPI(`/search?q=${encodeURIComponent(currentSearchQuery)}`);
+        const results = data.results || [];
+        showSearchResults(results, currentSearchQuery);
+    } catch (error) {
+        console.error('Search failed:', error);
+        showToast('Search failed', 'error');
+    }
+}
+
+const debouncedSearch = debounce(performSearch, 300);
+
+function showSearchResults(results, query) {
+    const searchResultsSection = document.getElementById('search-results');
+    const searchResultsList = document.getElementById('search-results-list');
+    const queryDisplay = document.getElementById('search-query-display');
+    const emptyStateSearch = document.getElementById('empty-state-search');
+    const fileGridContainer = document.getElementById('file-grid-container');
+
+    // Show search results section, hide file grid
+    searchResultsSection.classList.remove('hidden');
+    fileGridContainer.classList.add('hidden');
+
+    // Update query display
+    queryDisplay.textContent = `"${query}"`;
+
+    if (results.length === 0) {
+        searchResultsList.innerHTML = '';
+        emptyStateSearch.classList.remove('hidden');
+        return;
+    }
+
+    emptyStateSearch.classList.add('hidden');
+    searchResultsList.innerHTML = '';
+
+    results.forEach(result => {
+        const card = document.createElement('div');
+        card.className = 'search-result-card';
+        card.dataset.fileId = result.file_id;
+
+        // Highlight the query in snippets
+        const highlightedSnippets = result.snippets
+            .map(snippet => highlightText(snippet, query))
+            .join(' ... ');
+
+        card.innerHTML = `
+            <div class="search-result-header">
+                <span class="search-result-filename">${result.filename}</span>
+                <span class="search-result-category">${result.category}</span>
+            </div>
+            <div class="search-result-snippets">${highlightedSnippets}</div>
+            <div class="search-result-meta">
+                <span class="search-result-matches">${result.match_count} match${result.match_count !== 1 ? 'es' : ''}</span>
+            </div>
+        `;
+
+        // Click to navigate to results
+        card.addEventListener('click', () => {
+            // Create file object for viewFileResults
+            const file = {
+                id: result.file_id,
+                filename: result.filename,
+                category: result.category,
+                status: 'completed' // Search only returns completed files
+            };
+            viewFileResults(file);
+        });
+
+        searchResultsList.appendChild(card);
+    });
+}
+
+function highlightText(text, query) {
+    if (!query) return escapeHtml(text);
+
+    const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escapedQuery})`, 'gi');
+
+    return escapeHtml(text).replace(regex, '<mark class="highlight">$1</mark>');
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function hideSearchResults() {
+    const searchResultsSection = document.getElementById('search-results');
+    const fileGridContainer = document.getElementById('file-grid-container');
+
+    searchResultsSection.classList.add('hidden');
+    fileGridContainer.classList.remove('hidden');
+    currentSearchQuery = '';
+}
+
+function clearSearch() {
+    if (elements.searchInput) {
+        elements.searchInput.value = '';
+    }
+    hideSearchResults();
+}
+
 function renderCategories() {
     const list = elements.categoryList;
     list.innerHTML = '';
@@ -209,7 +331,11 @@ async function viewFileResults(file) {
 
     try {
         // Fetch the JSON results
-        const data = await fetchAPI(`/results/${file.id}`);
+        const response = await fetchAPI(`/results/${file.id}`);
+
+        // The API returns { file_id, filename, category, results: {...} }
+        // The actual JSON content is in the 'results' field
+        const data = response.results || response;
 
         // Store for panel actions (copy/download)
         currentPanelFile = file;
@@ -228,29 +354,34 @@ function renderResultsPanel(data, file) {
     // Set panel title
     document.getElementById('results-title').textContent = file.filename;
 
-    // Metadata section
-    document.getElementById('result-title').textContent = data.title || '-';
+    // Handle nested structure: data.metadata.title OR flat data.title
+    const metadata = data.metadata || {};
 
-    // Authors - handle array or string
-    const authors = data.authors;
+    // Title - check nested metadata first, then flat
+    const title = metadata.title || data.title || '-';
+    document.getElementById('result-title').textContent = title;
+
+    // Authors - handle nested metadata, array or string
+    const authors = metadata.authors || data.authors;
     if (Array.isArray(authors)) {
         document.getElementById('result-authors').textContent = authors.join(', ') || '-';
     } else {
         document.getElementById('result-authors').textContent = authors || '-';
     }
 
-    // Year - handle various formats
-    const year = data.year || data.publication_year || data.date;
+    // Year - handle various formats and nested structure
+    const year = metadata.year || metadata.publication_year || data.year || data.publication_year || data.date;
     document.getElementById('result-year').textContent = year || '-';
 
-    // Venue
-    const venue = data.venue || data.journal || data.conference || data.publication;
+    // Venue - handle nested structure and various field names
+    const venue = metadata.publication_venue || metadata.venue || metadata.journal || metadata.conference ||
+        data.venue || data.journal || data.conference || data.publication;
     document.getElementById('result-venue').textContent = venue || '-';
 
-    // Keywords as tags
+    // Keywords as tags - can be at top level
     const keywordsContainer = document.getElementById('result-keywords');
     keywordsContainer.innerHTML = '';
-    const keywords = data.keywords || [];
+    const keywords = data.keywords || metadata.keywords || [];
     if (Array.isArray(keywords) && keywords.length > 0) {
         keywords.forEach(keyword => {
             const tag = document.createElement('span');
@@ -262,18 +393,36 @@ function renderResultsPanel(data, file) {
         keywordsContainer.innerHTML = '<span class="no-data">No keywords</span>';
     }
 
-    // Summary
-    const summary = data.summary || data.abstract || '-';
-    document.getElementById('result-summary').textContent = summary;
+    // Summary - handle nested structure: data.summary can be an object with fields
+    const summaryObj = data.summary || {};
+    let summary;
+    if (typeof summaryObj === 'object' && summaryObj !== null) {
+        // Combine relevant summary fields
+        const parts = [];
+        if (summaryObj.problem_statement) parts.push(summaryObj.problem_statement);
+        if (summaryObj.objective) parts.push('Objective: ' + summaryObj.objective);
+        if (summaryObj.key_contribution) parts.push('Key Contribution: ' + summaryObj.key_contribution);
+        summary = parts.length > 0 ? parts.join('\n\n') : null;
+    } else {
+        summary = summaryObj;
+    }
+    document.getElementById('result-summary').textContent = summary || data.abstract || '-';
 
-    // Methodology
-    const methodology = data.methodology || data.methods || '-';
-    document.getElementById('result-methodology').textContent = methodology;
+    // Methodology - handle nested structure
+    const methodologyObj = data.methodology || {};
+    let methodology;
+    if (typeof methodologyObj === 'object' && methodologyObj !== null) {
+        methodology = methodologyObj.method_summary || methodologyObj.approach_type || null;
+    } else {
+        methodology = methodologyObj;
+    }
+    document.getElementById('result-methodology').textContent = methodology || data.methods || '-';
 
-    // Key Findings as list
+    // Key Findings - handle nested structure: data.results_and_evaluation.key_findings
     const findingsContainer = document.getElementById('result-findings');
     findingsContainer.innerHTML = '';
-    const findings = data.key_findings || data.findings || data.conclusions || [];
+    const resultsEval = data.results_and_evaluation || {};
+    const findings = resultsEval.key_findings || data.key_findings || data.findings || data.conclusions || [];
     if (Array.isArray(findings) && findings.length > 0) {
         findings.forEach(finding => {
             const li = document.createElement('li');
@@ -345,6 +494,23 @@ document.addEventListener('DOMContentLoaded', () => {
     // Hide context menu on click outside
     document.addEventListener('click', () => {
         document.getElementById('context-menu').classList.add('hidden');
+    });
+
+    // Search input with instant debounced search
+    elements.searchInput?.addEventListener('input', (e) => {
+        debouncedSearch(e.target.value);
+    });
+
+    // Clear search on Escape key
+    elements.searchInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            clearSearch();
+        }
+    });
+
+    // Search button click (for explicit search)
+    document.getElementById('search-btn')?.addEventListener('click', () => {
+        performSearch(elements.searchInput?.value || '');
     });
 
     // Add Category Modal

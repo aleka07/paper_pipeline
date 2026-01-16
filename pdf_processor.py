@@ -163,13 +163,14 @@ Output only the JSON, nothing else."""
             clean = json_match.group(1)
         return clean.strip()
 
-    def convert_pdf_to_markdown(self, pdf_path, category_code, sequence_id):
+    def convert_pdf_to_markdown(self, pdf_path, category_code):
         """
         Phase 1: Convert a single PDF to Markdown and save it.
+        Uses the original PDF filename for the output markdown file.
         Returns True on success, False on failure.
         """
         path_obj = Path(pdf_path)
-        paper_id = f"{category_code}-{sequence_id:03d}"
+        base_name = path_obj.stem  # Original PDF filename without extension
         
         # Extract markdown from PDF
         markdown_text = self.extract_markdown(str(path_obj))
@@ -177,10 +178,10 @@ Output only the JSON, nothing else."""
         if not markdown_text:
             return False
 
-        # Save the Markdown file
+        # Save the Markdown file with original PDF name
         md_output_dir = MARKDOWN_DIR / category_code
         md_output_dir.mkdir(parents=True, exist_ok=True)
-        md_file = md_output_dir / f"{paper_id}.md"
+        md_file = md_output_dir / f"{base_name}.md"
         
         with open(md_file, "w", encoding="utf-8") as f:
             f.write(markdown_text)
@@ -248,16 +249,18 @@ Output only the JSON, nothing else."""
             print(f"   ❌ Inference Failed: {e}")
             return False
 
-    def process_pdf(self, pdf_path, category_code, sequence_id):
+    def process_pdf(self, pdf_path, category_code):
         """
         Legacy method: Full pipeline (PDF → MD → JSON) for a single file.
         Kept for backwards compatibility.
         """
+        path_obj = Path(pdf_path)
+        base_name = path_obj.stem
+        
         # Phase 1: Convert to MD
-        if not self.convert_pdf_to_markdown(pdf_path, category_code, sequence_id):
+        if not self.convert_pdf_to_markdown(pdf_path, category_code):
             return False
         
         # Phase 2: Generate JSON from MD
-        paper_id = f"{category_code}-{sequence_id:03d}"
-        md_file = MARKDOWN_DIR / category_code / f"{paper_id}.md"
+        md_file = MARKDOWN_DIR / category_code / f"{base_name}.md"
         return self.generate_json_from_markdown(md_file, category_code)

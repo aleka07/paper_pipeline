@@ -95,9 +95,7 @@ def process_single_file(pdf_path: Path, category: str, job_id: str) -> bool:
             processing_state["current_file"] = pdf_path.name
             processing_state["current_phase"] = 1
         
-        md_success = processor.convert_pdf_to_markdown(
-            str(pdf_path), category, "001"  # sequence_id for naming
-        )
+        md_success = processor.convert_pdf_to_markdown(str(pdf_path), category)
         
         if not md_success:
             return False
