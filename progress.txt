@@ -414,3 +414,21 @@ Conversation: 6fadd1ad-1f23-4656-92bb-3360e057e84d
   - Use `encodeURIComponent()` for category names in URLs to handle special characters
   - Backend export API returns zip as blob, download with `URL.createObjectURL()`
 ---
+
+## 2026-01-16T16:50 - US-024: Connection and Error Handling
+Conversation: af844a04-21ca-49ed-af46-71c1cc1943c0
+- Enhanced `showToast()` function to accept optional retry callback (`options.onRetry`)
+- Toast notifications show with correct colors: success (green), error (red), warning (yellow), info (blue)
+- All toasts use glassmorphism styling with slide-in animation from right
+- Added `showLoading(text)` and `hideLoading()` functions for loading overlay control
+- Added `retryConnection()` function that tests `/api/health`, restores connection, and reloads data
+- Wired up "Retry" button in connection banner to call `retryConnection()`
+- Connection banner properly hidden when server is connected (via `hideConnectionBanner()`)
+- Added CSS for `.toast.info`, `.toast-message`, `.toast-retry-btn`, `.loading-text`, and `.hidden` utility
+- Browser verified: All 4 toast variants work, connection banner hidden, loading overlay ready
+- Files changed: `frontend/app.js`, `frontend/styles.css`, `prd.json`
+- **Learnings for future iterations:**
+  - Enhanced showToast with third parameter `options` for extensibility (retry, duration, etc.)
+  - Use `/api/health` endpoint for connection testing and reconnection logic
+  - Loading overlay should be non-blocking unless explicitly needed (keep hidden by default)
+---

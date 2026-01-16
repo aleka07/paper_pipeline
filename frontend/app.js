@@ -61,13 +61,36 @@ let state = {
 };
 
 // Utility Functions
-function showToast(message, type = 'info') {
+function showToast(message, type = 'info', options = {}) {
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-    toast.innerHTML = `<span>${message}</span>`;
+
+    // Build toast content
+    let html = `<span class="toast-message">${message}</span>`;
+
+    // Add retry button if callback provided
+    if (options.onRetry) {
+        html += `<button class="toast-retry-btn btn btn-small">Retry</button>`;
+    }
+
+    toast.innerHTML = html;
+
+    // Add retry handler if provided
+    if (options.onRetry) {
+        const retryBtn = toast.querySelector('.toast-retry-btn');
+        retryBtn.addEventListener('click', () => {
+            toast.remove();
+            options.onRetry();
+        });
+    }
+
     elements.toastContainer.appendChild(toast);
 
-    setTimeout(() => toast.remove(), 3000);
+    // Auto-remove after duration (longer for retryable toasts)
+    const duration = options.onRetry ? 5000 : 3000;
+    setTimeout(() => toast.remove(), duration);
+
+    return toast;
 }
 
 async function fetchAPI(endpoint, options = {}) {
@@ -709,10 +732,52 @@ async function confirmDelete() {
     }
 }
 
+// Loading Overlay Functions
+function showLoading(text = 'Loading...') {
+    const overlay = document.getElementById('loading-overlay');
+    const loadingText = document.getElementById('loading-text');
+    if (overlay) {
+        if (loadingText) loadingText.textContent = text;
+        overlay.classList.remove('hidden');
+    }
+}
+
+function hideLoading() {
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) {
+        overlay.classList.add('hidden');
+    }
+}
+
+// Retry Connection Function
+async function retryConnection() {
+    showToast('Reconnecting...', 'info');
+    try {
+        const response = await fetch(`${API_BASE}/health`);
+        if (response.ok) {
+            state.isConnected = true;
+            hideConnectionBanner();
+            showToast('Connection restored!', 'success');
+            // Reload data
+            await loadCategories();
+            if (state.currentCategory) {
+                await loadFiles(state.currentCategory);
+            }
+        } else {
+            throw new Error('Server not responding');
+        }
+    } catch (error) {
+        showToast('Still disconnected. Please check the server.', 'error');
+    }
+}
+
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
     loadCategories();
     startStatusPolling();
+
+    // Retry connection button
+    document.getElementById('retry-connection-btn')?.addEventListener('click', retryConnection);
 
     // Hide context menu on click outside
     document.addEventListener('click', () => {

@@ -993,6 +993,31 @@ body {
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px var(--color-warning-glow);
 }
 
+.toast.info {
+    border-left: 4px solid var(--color-info);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px var(--color-info-glow);
+}
+
+.toast-message {
+    flex: 1;
+}
+
+.toast-retry-btn {
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: var(--color-text-primary);
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-speed);
+}
+
+.toast-retry-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: var(--color-accent);
+}
+
 /* Connection Banner - Gradient */
 .connection-banner {
     position: fixed;
@@ -1021,6 +1046,12 @@ body {
     align-items: center;
     justify-content: center;
     z-index: 400;
+    backdrop-filter: blur(4px);
+    transition: opacity 0.3s ease;
+}
+
+.loading-overlay.hidden {
+    display: none;
 }
 
 .spinner {
@@ -1032,10 +1063,21 @@ body {
     animation: spin 1s linear infinite;
 }
 
+.loading-text {
+    margin-top: 1rem;
+    color: var(--color-text-secondary);
+    font-size: 0.875rem;
+}
+
 @keyframes spin {
     to {
         transform: rotate(360deg);
     }
+}
+
+/* Utility Classes */
+.hidden {
+    display: none !important;
 }
 
 /* Context Menu */
