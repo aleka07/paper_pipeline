@@ -149,3 +149,19 @@ Conversation: 9189dc4f-4703-43a5-b1c3-41dcd336b59f
   - Sort results by match_count for relevance ranking
 ---
 
+## 2026-01-16T13:48 - US-011: Batch Export API
+Conversation: 5decf991-2a1a-447d-b4b2-71c11fc402cb
+- Implemented GET /api/export/category/<name> endpoint - exports all JSONs in category as zip
+- Implemented GET /api/export/all endpoint - exports all processed JSONs as zip
+- Both endpoints support ?include_pdf=true to include original PDF files
+- Created helper function `create_export_zip()` for in-memory zip creation
+- Uses zipfile module with ZIP_DEFLATED compression
+- Proper error handling returns 404 if no processed files to export
+- Pyright typecheck passes with 0 errors
+- Files changed: `backend/app.py`
+- **Learnings for future iterations:**
+  - Use io.BytesIO for in-memory zip file creation
+  - Flask Response with 'application/zip' mimetype for binary downloads
+  - Add Content-Length header for proper download progress indication
+---
+

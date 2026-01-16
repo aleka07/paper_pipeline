@@ -1017,6 +1017,163 @@ def search_files():
     })
 
 
+# ============= Batch Export API Endpoints =============
+
+
+def create_export_zip(
+    files_to_export: list[tuple[Path, str, str]],  # (file_path, archive_name, file_type)
+    include_pdfs: bool = False
+) -> bytes:
+    """Create a zip file in memory with the given files.
+    
+    Args:
+        files_to_export: List of tuples (file_path, archive_name, file_type)
+            where file_type is 'json' or 'pdf'
+        include_pdfs: Whether to include PDF files along with JSONs
+    
+    Returns:
+        Bytes of the zip file
+    """
+    import io
+    import zipfile
+    
+    buffer = io.BytesIO()
+    
+    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for file_path, archive_name, file_type in files_to_export:
+            if file_type == 'pdf' and not include_pdfs:
+                continue
+            if file_path.exists():
+                zf.write(file_path, archive_name)
+    
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+@app.route('/api/export/category/<name>', methods=['GET'])
+def export_category(name: str):
+    """Export all processed JSON results in a category as a zip file.
+    
+    Query params:
+        include_pdf: If 'true', includes original PDF files (default: false)
+    
+    Returns:
+        Zip file containing JSON results and optionally PDFs
+    """
+    from flask import Response
+    
+    category_output_dir = OUTPUT_DIR / name
+    category_input_dir = INPUT_DIR / name
+    
+    # Validate category exists
+    if not category_input_dir.exists() or not category_input_dir.is_dir():
+        return jsonify({"error": f"Category '{name}' not found"}), 404
+    
+    include_pdfs = request.args.get('include_pdf', 'false').lower() == 'true'
+    
+    # Collect all JSON files in the category
+    files_to_export: list[tuple[Path, str, str]] = []
+    
+    if category_output_dir.exists():
+        for json_file in category_output_dir.glob("*.json"):
+            # Add JSON file
+            archive_name = f"{name}/{json_file.name}"
+            files_to_export.append((json_file, archive_name, 'json'))
+            
+            # Add corresponding PDF if requested
+            if include_pdfs:
+                pdf_name = json_file.stem + ".pdf"
+                pdf_path = category_input_dir / pdf_name
+                if pdf_path.exists():
+                    pdf_archive_name = f"{name}/{pdf_name}"
+                    files_to_export.append((pdf_path, pdf_archive_name, 'pdf'))
+    
+    if not files_to_export:
+        return jsonify({
+            "error": "No processed files to export",
+            "category": name,
+            "suggestion": "Process some files first using /api/process/category/" + name
+        }), 404
+    
+    # Create zip file
+    zip_data = create_export_zip(files_to_export, include_pdfs)
+    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"export_{name}_{timestamp}.zip"
+    
+    return Response(
+        zip_data,
+        mimetype='application/zip',
+        headers={
+            'Content-Disposition': f'attachment; filename="{filename}"',
+            'Content-Length': str(len(zip_data))
+        }
+    )
+
+
+@app.route('/api/export/all', methods=['GET'])
+def export_all():
+    """Export all processed JSON results across all categories as a zip file.
+    
+    Query params:
+        include_pdf: If 'true', includes original PDF files (default: false)
+    
+    Returns:
+        Zip file containing JSON results and optionally PDFs, organized by category
+    """
+    from flask import Response
+    
+    include_pdfs = request.args.get('include_pdf', 'false').lower() == 'true'
+    
+    # Collect all JSON files across all categories
+    files_to_export: list[tuple[Path, str, str]] = []
+    
+    for category_dir in OUTPUT_DIR.iterdir():
+        if not category_dir.is_dir():
+            continue
+        
+        category_name = category_dir.name
+        category_input_dir = INPUT_DIR / category_name
+        
+        for json_file in category_dir.glob("*.json"):
+            # Add JSON file
+            archive_name = f"{category_name}/{json_file.name}"
+            files_to_export.append((json_file, archive_name, 'json'))
+            
+            # Add corresponding PDF if requested
+            if include_pdfs:
+                pdf_name = json_file.stem + ".pdf"
+                pdf_path = category_input_dir / pdf_name
+                if pdf_path.exists():
+                    pdf_archive_name = f"{category_name}/{pdf_name}"
+                    files_to_export.append((pdf_path, pdf_archive_name, 'pdf'))
+    
+    if not files_to_export:
+        return jsonify({
+            "error": "No processed files to export",
+            "suggestion": "Process some files first using /api/process/all"
+        }), 404
+    
+    # Create zip file
+    zip_data = create_export_zip(files_to_export, include_pdfs)
+    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"export_all_{timestamp}.zip"
+    
+    # Count files by category for response metadata in headers
+    json_count = sum(1 for _, _, t in files_to_export if t == 'json')
+    
+    return Response(
+        zip_data,
+        mimetype='application/zip',
+        headers={
+            'Content-Disposition': f'attachment; filename="{filename}"',
+            'Content-Length': str(len(zip_data)),
+            'X-Export-File-Count': str(json_count)
+        }
+    )
+
+
 if __name__ == '__main__':
     # Bind to 0.0.0.0 for LAN accessibility
     app.run(host='0.0.0.0', port=5000, debug=True)
