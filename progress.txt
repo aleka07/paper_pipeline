@@ -205,3 +205,18 @@ Conversation: 7e20f952-2d3e-44e5-820f-ca33c62b9f70
   - Use `cubic-bezier(0.34, 1.56, 0.64, 1)` for satisfying bounce animations
   - Glassmorphism works best with semi-transparent rgba backgrounds
 ---
+
+## 2026-01-16T14:08 - US-014: Category Sidebar Component
+Conversation: 02829c4a-703f-4e91-bf1e-5181ae5368f2
+- Sidebar lists all categories from API with file counts
+- Click category to select and load files in main area
+- Add Category button opens modal for creating new categories
+- Selected category visually highlighted with purple active state
+- File count badge in header updates on category selection
+- Enhanced `selectCategory()` to update file count badge from category data
+- Verified in browser: all interactions working correctly
+- Files changed: `frontend/app.js`, `prd.json`
+- **Learnings for future iterations:**
+  - Category data already contains `total_files` count, use it directly
+  - Use `.find()` to locate category object in state for access to its properties
+---

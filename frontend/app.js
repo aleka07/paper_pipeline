@@ -132,6 +132,12 @@ async function selectCategory(name) {
     elements.processCategoryBtn.disabled = false;
     elements.exportCategoryBtn.disabled = false;
 
+    // Update file count badge from category data
+    const category = state.categories.find(c => c.name === name);
+    if (category) {
+        elements.fileCountBadge.textContent = `${category.total_files || 0} files`;
+    }
+
     renderCategories();
     await loadFiles(name);
 }
