@@ -165,3 +165,24 @@ Conversation: 5decf991-2a1a-447d-b4b2-71c11fc402cb
   - Add Content-Length header for proper download progress indication
 ---
 
+
+## 2026-01-16T13:52 - US-012: Frontend HTML Structure
+Conversation: 882ac30c-676a-4229-bdac-437c16757d20
+- Created `frontend/index.html` with semantic HTML5 structure
+- Header with app title, search input, and global actions (Process All, Settings)
+- Status bar showing processing state and queue info
+- Sidebar for category navigation with Add button
+- Main content area with category header, upload zone, file grid
+- Results panel (slides in from right) for viewing extracted data
+- Modals for add category, delete confirmation, and export options
+- Context menu for file actions
+- Toast container and connection banner for feedback
+- Created `frontend/styles.css` with complete dark theme design system
+- Created `frontend/app.js` with basic API utilities and event handlers
+- Verified in browser - all elements render correctly
+- Files changed: `frontend/index.html`, `frontend/styles.css`, `frontend/app.js`
+- **Learnings for future iterations:**
+  - Use CSS custom properties for consistent theming
+  - Include responsive breakpoints for tablet (1024px) and mobile (768px)
+  - Semantic HTML with proper ARIA labels improves accessibility
+---
