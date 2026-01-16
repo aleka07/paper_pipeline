@@ -298,6 +298,62 @@
         </div>
     </div>
 
+    <!-- Welcome/Onboarding Modal (first visit) -->
+    <div class="modal-overlay hidden" id="welcome-modal">
+        <div class="modal welcome-modal" role="dialog" aria-labelledby="welcome-modal-title">
+            <div class="modal-header">
+                <h3 id="welcome-modal-title">👋 Welcome to Paper Pipeline!</h3>
+                <button class="btn btn-icon modal-close" aria-label="Close">
+                    <span class="icon">✕</span>
+                </button>
+            </div>
+            <div class="modal-body welcome-body">
+                <p class="welcome-intro">Extract structured data from academic papers with ease.</p>
+
+                <div class="quick-tips">
+                    <h4>Quick Start Guide</h4>
+                    <ol class="tips-list">
+                        <li>
+                            <span class="tip-icon">📁</span>
+                            <div class="tip-content">
+                                <strong>Create a Category</strong>
+                                <p>Click "+ Add" in the sidebar to organize your papers.</p>
+                            </div>
+                        </li>
+                        <li>
+                            <span class="tip-icon">📄</span>
+                            <div class="tip-content">
+                                <strong>Upload PDFs</strong>
+                                <p>Drag and drop PDF files or use the upload zone.</p>
+                            </div>
+                        </li>
+                        <li>
+                            <span class="tip-icon">▶️</span>
+                            <div class="tip-content">
+                                <strong>Process Papers</strong>
+                                <p>Click "Process" to extract structured data automatically.</p>
+                            </div>
+                        </li>
+                        <li>
+                            <span class="tip-icon">📊</span>
+                            <div class="tip-content">
+                                <strong>View Results</strong>
+                                <p>Click any processed paper to see extracted metadata, summary, and findings.</p>
+                            </div>
+                        </li>
+                    </ol>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <label class="checkbox-label dont-show-again">
+                    <input type="checkbox" id="dont-show-welcome-checkbox">
+                    Don't show this again
+                </label>
+                <button class="btn btn-primary" id="get-started-btn">Get Started</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Container -->
     <div class="toast-container" id="toast-container">
         <!-- Toasts will be dynamically added here -->

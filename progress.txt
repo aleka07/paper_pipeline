@@ -432,3 +432,19 @@ Conversation: af844a04-21ca-49ed-af46-71c1cc1943c0
   - Use `/api/health` endpoint for connection testing and reconnection logic
   - Loading overlay should be non-blocking unless explicitly needed (keep hidden by default)
 ---
+
+## 2026-01-16T17:05 - US-025: Empty States and Onboarding
+Conversation: 9505909e-50f5-42a6-a47e-86ba5bd3e33e
+- Added welcome modal with Quick Start Guide (4 steps: Create Category, Upload PDFs, Process Papers, View Results)
+- Implemented first-visit detection using localStorage key `paperPipelineWelcomeShown`
+- Enhanced empty category state in sidebar with "No categories yet" + "Create Category" button CTA
+- Enhanced empty file state shows "No files yet" + "Drop PDFs here to get started"
+- Search empty state already shows "No matches found" from US-020
+- Added CSS for `.welcome-modal`, `.empty-categories-state`, `.empty-state-enhanced`, `.tips-list`
+- Browser verified: welcome modal appears on first visit, all empty states display correctly
+- Files changed: `frontend/index.html`, `frontend/styles.css`, `frontend/app.js`, `prd.json`
+- **Learnings for future iterations:**
+  - Use localStorage for first-visit detection and "don't show again" preferences
+  - Enhanced empty states should have clear CTAs (buttons) to guide users to next action
+  - Add slight delay (500ms) before showing welcome modal for smoother page load experience
+---

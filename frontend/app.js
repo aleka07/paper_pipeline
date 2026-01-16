@@ -250,7 +250,22 @@ function renderCategories() {
     list.innerHTML = '';
 
     if (state.categories.length === 0) {
-        list.innerHTML = '<li class="empty-message" style="padding: 1rem; color: var(--color-text-secondary); text-align: center;">No categories yet</li>';
+        // Enhanced empty state for no categories
+        list.innerHTML = `
+            <li class="empty-categories-state">
+                <span class="empty-icon">📁</span>
+                <h4>No categories yet</h4>
+                <p>Create your first category to start organizing papers</p>
+                <button class="btn btn-primary btn-small create-first-category-btn">
+                    <span class="icon">+</span> Create Category
+                </button>
+            </li>
+        `;
+        // Add click handler for the create button
+        const createBtn = list.querySelector('.create-first-category-btn');
+        createBtn?.addEventListener('click', () => {
+            elements.addCategoryModal.classList.remove('hidden');
+        });
         return;
     }
 
@@ -771,10 +786,50 @@ async function retryConnection() {
     }
 }
 
+// ===============================
+// Welcome Modal / Onboarding
+// ===============================
+
+const WELCOME_SHOWN_KEY = 'paperPipelineWelcomeShown';
+
+function showWelcomeModal() {
+    const modal = document.getElementById('welcome-modal');
+    if (modal) {
+        modal.classList.remove('hidden');
+    }
+}
+
+function hideWelcomeModal() {
+    const modal = document.getElementById('welcome-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+
+    // Check if "don't show again" is checked
+    const dontShowCheckbox = document.getElementById('dont-show-welcome-checkbox');
+    if (dontShowCheckbox?.checked) {
+        localStorage.setItem(WELCOME_SHOWN_KEY, 'true');
+    }
+}
+
+function checkFirstVisit() {
+    const hasSeenWelcome = localStorage.getItem(WELCOME_SHOWN_KEY);
+    if (!hasSeenWelcome) {
+        // Small delay to let the page load first
+        setTimeout(() => {
+            showWelcomeModal();
+        }, 500);
+    }
+}
+
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
     loadCategories();
     startStatusPolling();
+    checkFirstVisit();
+
+    // Welcome modal "Get Started" button
+    document.getElementById('get-started-btn')?.addEventListener('click', hideWelcomeModal);
 
     // Retry connection button
     document.getElementById('retry-connection-btn')?.addEventListener('click', retryConnection);
