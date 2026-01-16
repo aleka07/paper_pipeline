@@ -6,6 +6,7 @@
 - Directory structure: `data/input/`, `data/markdown/`, `data/output/`
 - Backend serves on `0.0.0.0:5000` for LAN accessibility
 - Frontend is vanilla HTML/CSS/JS in `frontend/` directory
+- **API field names**: Backend returns `file_count`, NOT `total_files` - always verify field names match between backend and frontend
 
 ---
 
@@ -380,4 +381,36 @@ Conversation: 68da6062-d268-4269-b94c-7a254729abbb
   - Render checkboxes inside `.file-card-checkbox` container positioned absolutely for clean layout
   - The Select All checkbox should use indeterminate state when partial selection exists
   - Batch delete reuses the delete confirmation modal with `isBatch: true` flag to differentiate
+---
+
+## 2026-01-16T16:41 - Bug Fix: Category File Count Display
+Conversation: f5ade1e0-6da2-47e6-b8fb-4b3ef9cc2ff4
+- Fixed category sidebar showing "0" for all file counts
+- Root cause: Field name mismatch between backend (`file_count`) and frontend (`total_files`)
+- Fixed 3 occurrences in `frontend/app.js`:
+  - Line 239: Category badge display
+  - Line 247: Total files count calculation
+  - Line 260: File count badge in category header
+- Files changed: `frontend/app.js`
+- **Learnings for future iterations:**
+  - Always verify API response field names match frontend expectations
+  - Use browser DevTools Network tab to inspect actual API responses when debugging display issues
+  - Backend API documentation or TypeScript interfaces would prevent this class of bug
+---
+
+## 2026-01-16T16:45 - US-023: Category Export UI
+Conversation: 6fadd1ad-1f23-4656-92bb-3360e057e84d
+- Added event listener for Export Category button to show export modal
+- Added event listeners for Cancel and Export buttons in export modal
+- Implemented `showExportModal()` function with validation for category selection and completed files
+- Implemented `hideExportModal()` function
+- Implemented `confirmExportCategory()` function to call backend export API and download zip file
+- Backend API already existed: `GET /api/export/category/<name>` with `?include_pdf=true` param
+- Export modal shows checkboxes for JSON (always included, disabled) and optional PDFs
+- Browser verified: Export button works, modal opens with correct elements, zip file downloads
+- Files changed: `frontend/app.js`, `prd.json`
+- **Learnings for future iterations:**
+  - Export modal HTML was already in place from US-012, just needed JavaScript wiring
+  - Use `encodeURIComponent()` for category names in URLs to handle special characters
+  - Backend export API returns zip as blob, download with `URL.createObjectURL()`
 ---

@@ -236,7 +236,7 @@ function renderCategories() {
         li.className = `category-item${state.currentCategory === cat.name ? ' active' : ''}`;
         li.innerHTML = `
             <span class="category-name">${cat.name}</span>
-            <span class="category-badge">${cat.total_files || 0}</span>
+            <span class="category-badge">${cat.file_count || 0}</span>
         `;
         li.addEventListener('click', () => selectCategory(cat.name));
         list.appendChild(li);
@@ -244,7 +244,7 @@ function renderCategories() {
 }
 
 function updateTotalFilesCount() {
-    const total = state.categories.reduce((sum, cat) => sum + (cat.total_files || 0), 0);
+    const total = state.categories.reduce((sum, cat) => sum + (cat.file_count || 0), 0);
     elements.totalFilesCount.textContent = total;
 }
 
@@ -257,7 +257,7 @@ async function selectCategory(name) {
     // Update file count badge from category data
     const category = state.categories.find(c => c.name === name);
     if (category) {
-        elements.fileCountBadge.textContent = `${category.total_files || 0} files`;
+        elements.fileCountBadge.textContent = `${category.file_count || 0} files`;
     }
 
     renderCategories();
@@ -870,6 +870,21 @@ document.addEventListener('DOMContentLoaded', () => {
         exportSelectedFiles();
     });
 
+    // Export Category button
+    elements.exportCategoryBtn?.addEventListener('click', () => {
+        showExportModal();
+    });
+
+    // Export Modal - Cancel button
+    document.querySelector('.cancel-export-btn')?.addEventListener('click', () => {
+        hideExportModal();
+    });
+
+    // Export Modal - Confirm button
+    document.getElementById('confirm-export-btn')?.addEventListener('click', () => {
+        confirmExportCategory();
+    });
+
     // Select All checkbox
     document.getElementById('select-all-checkbox')?.addEventListener('change', (e) => {
         toggleSelectAll(e.target.checked);
@@ -1382,6 +1397,83 @@ function hideConnectionBanner() {
     const banner = document.getElementById('connection-banner');
     if (banner) {
         banner.classList.add('hidden');
+    }
+}
+
+// Category Export Functions
+function showExportModal() {
+    if (!state.currentCategory) {
+        showToast('No category selected', 'warning');
+        return;
+    }
+
+    // Check if there are any completed files in the category
+    const completedFiles = state.files.filter(f => f.status === 'completed');
+    if (completedFiles.length === 0) {
+        showToast('No processed files to export in this category', 'warning');
+        return;
+    }
+
+    const modal = document.getElementById('export-modal');
+    modal.classList.remove('hidden');
+
+    // Reset checkboxes to defaults
+    document.getElementById('export-pdf-checkbox').checked = false;
+}
+
+function hideExportModal() {
+    document.getElementById('export-modal').classList.add('hidden');
+}
+
+async function confirmExportCategory() {
+    if (!state.currentCategory) {
+        hideExportModal();
+        showToast('No category selected', 'warning');
+        return;
+    }
+
+    const includePdf = document.getElementById('export-pdf-checkbox').checked;
+    const categoryName = state.currentCategory;
+
+    hideExportModal();
+
+    showToast(`Exporting category "${categoryName}"...`, 'info');
+
+    try {
+        // Build the export URL
+        let url = `${API_BASE}/export/category/${encodeURIComponent(categoryName)}`;
+        if (includePdf) {
+            url += '?include_pdf=true';
+        }
+
+        // Fetch the zip file
+        const response = await fetch(url);
+
+        if (!response.ok) {
+            if (response.status === 404) {
+                showToast('No processed files to export', 'warning');
+            } else {
+                showToast('Export failed', 'error');
+            }
+            return;
+        }
+
+        // Download the zip file
+        const blob = await response.blob();
+        const downloadUrl = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = `${categoryName}_export.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(downloadUrl);
+
+        showToast(`Category "${categoryName}" exported successfully`, 'success');
+    } catch (error) {
+        console.error('Export error:', error);
+        showToast('Export failed: ' + error.message, 'error');
     }
 }
 
