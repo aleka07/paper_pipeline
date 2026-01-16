@@ -175,6 +175,96 @@ def delete_category(name: str):
         return jsonify({"error": f"Failed to delete category: {str(e)}"}), 500
 
 
+# ============= File Upload API Endpoints =============
+
+def get_unique_filename(directory: Path, filename: str) -> str:
+    """Generate a unique filename by appending a number if file already exists."""
+    base = Path(filename).stem
+    suffix = Path(filename).suffix
+    
+    if not (directory / filename).exists():
+        return filename
+    
+    counter = 1
+    while True:
+        new_name = f"{base}_{counter}{suffix}"
+        if not (directory / new_name).exists():
+            return new_name
+        counter += 1
+
+
+def generate_file_id(category: str, filename: str) -> str:
+    """Generate a unique file ID based on category and filename."""
+    import hashlib
+    return hashlib.md5(f"{category}/{filename}".encode()).hexdigest()[:12]
+
+
+def is_valid_pdf(file) -> bool:
+    """Validate that the file is a PDF by checking extension and MIME type."""
+    # Check extension
+    if not file.filename or not file.filename.lower().endswith('.pdf'):
+        return False
+    
+    # Check MIME type
+    if file.content_type and file.content_type not in ['application/pdf', 'application/x-pdf']:
+        # Allow empty/missing content_type as some clients don't send it
+        if file.content_type != 'application/octet-stream':
+            return False
+    
+    return True
+
+
+@app.route('/api/categories/<name>/upload', methods=['POST'])
+def upload_file(name: str):
+    """Upload a PDF file to a specific category."""
+    category_path = INPUT_DIR / name
+    
+    # Validate category exists
+    if not category_path.exists() or not category_path.is_dir():
+        return jsonify({"error": f"Category '{name}' not found"}), 404
+    
+    # Check for file in request
+    if 'file' not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+    
+    file = request.files['file']
+    
+    if not file.filename:
+        return jsonify({"error": "No file selected"}), 400
+    
+    # Validate PDF
+    if not is_valid_pdf(file):
+        return jsonify({"error": "Only PDF files are allowed"}), 400
+    
+    # Secure and handle duplicate filenames
+    from werkzeug.utils import secure_filename
+    safe_filename = secure_filename(file.filename)
+    if not safe_filename.lower().endswith('.pdf'):
+        safe_filename = safe_filename + '.pdf'
+    
+    final_filename = get_unique_filename(category_path, safe_filename)
+    file_path = category_path / final_filename
+    
+    try:
+        file.save(str(file_path))
+        file_size = file_path.stat().st_size
+        file_id = generate_file_id(name, final_filename)
+        
+        return jsonify({
+            "message": "File uploaded successfully",
+            "file": {
+                "id": file_id,
+                "filename": final_filename,
+                "original_filename": file.filename,
+                "category": name,
+                "size": file_size,
+                "status": "pending"
+            }
+        }), 201
+    except OSError as e:
+        return jsonify({"error": f"Failed to save file: {str(e)}"}), 500
+
+
 if __name__ == '__main__':
     # Bind to 0.0.0.0 for LAN accessibility
     app.run(host='0.0.0.0', port=5000, debug=True)
