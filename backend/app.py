@@ -12,12 +12,24 @@ from pathlib import Path
 from queue import Queue
 from typing import Any
 
+import logging
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 # Add parent directory to path for pdf_processor import
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from pdf_processor import LocalPDFProcessor
+
+
+# Filter out noisy /api/status polling logs
+class StatusEndpointFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        # Suppress logs containing /api/status requests
+        return '/api/status' not in record.getMessage()
+
+
+# Apply filter to werkzeug logger (Flask's request logger)
+logging.getLogger('werkzeug').addFilter(StatusEndpointFilter())
 
 app = Flask(__name__, static_folder='../frontend', static_url_path='')
 
