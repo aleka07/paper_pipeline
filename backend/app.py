@@ -886,6 +886,137 @@ def reprocess_file(file_id: str):
     }), 202
 
 
+# ============= Search and Filter API Endpoints =============
+
+def search_in_json_result(json_data: dict, query: str) -> dict[str, list[str]]:
+    """Search for query in JSON result fields and return matching snippets.
+    
+    Returns dict with field names as keys and list of matching snippets as values.
+    """
+    query_lower = query.lower()
+    matches: dict[str, list[str]] = {}
+    
+    # Search in title
+    title = json_data.get("title", "")
+    if isinstance(title, str) and query_lower in title.lower():
+        matches["title"] = [title]
+    
+    # Search in authors
+    authors = json_data.get("authors", [])
+    if isinstance(authors, list):
+        matching_authors = [a for a in authors if isinstance(a, str) and query_lower in a.lower()]
+        if matching_authors:
+            matches["authors"] = matching_authors
+    elif isinstance(authors, str) and query_lower in authors.lower():
+        matches["authors"] = [authors]
+    
+    # Search in keywords
+    keywords = json_data.get("keywords", [])
+    if isinstance(keywords, list):
+        matching_keywords = [k for k in keywords if isinstance(k, str) and query_lower in k.lower()]
+        if matching_keywords:
+            matches["keywords"] = matching_keywords
+    elif isinstance(keywords, str) and query_lower in keywords.lower():
+        matches["keywords"] = [keywords]
+    
+    # Search in summary/abstract
+    summary = json_data.get("summary", json_data.get("abstract", ""))
+    if isinstance(summary, str) and query_lower in summary.lower():
+        # Extract a snippet around the match
+        idx = summary.lower().find(query_lower)
+        start = max(0, idx - 50)
+        end = min(len(summary), idx + len(query) + 50)
+        snippet = summary[start:end]
+        if start > 0:
+            snippet = "..." + snippet
+        if end < len(summary):
+            snippet = snippet + "..."
+        matches["summary"] = [snippet]
+    
+    return matches
+
+
+@app.route('/api/search', methods=['GET'])
+def search_files():
+    """Search across processed JSON results.
+    
+    Query params:
+        q: Search query (required)
+        category: Filter by category name (optional)
+    
+    Returns matching files with relevance snippets.
+    """
+    import json
+    
+    query = request.args.get('q', '').strip()
+    category_filter = request.args.get('category', '').strip()
+    
+    if not query:
+        return jsonify({"error": "Search query 'q' is required"}), 400
+    
+    results = []
+    
+    # Determine which categories to search
+    if category_filter:
+        category_dirs = [OUTPUT_DIR / category_filter]
+        if not category_dirs[0].exists():
+            return jsonify({
+                "error": f"Category '{category_filter}' not found",
+                "query": query
+            }), 404
+    else:
+        category_dirs = [d for d in OUTPUT_DIR.iterdir() if d.is_dir()]
+    
+    # Search through all JSON files
+    for category_dir in category_dirs:
+        if not category_dir.is_dir():
+            continue
+        
+        category_name = category_dir.name
+        
+        for json_file in category_dir.glob("*.json"):
+            try:
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    json_data = json.load(f)
+                
+                # Search in the JSON content
+                matches = search_in_json_result(json_data, query)
+                
+                if matches:
+                    # Find the corresponding PDF to get file_id
+                    pdf_name = json_file.stem + ".pdf"
+                    pdf_path = INPUT_DIR / category_name / pdf_name
+                    
+                    if pdf_path.exists():
+                        file_id = generate_file_id(category_name, pdf_name)
+                    else:
+                        # PDF was deleted but JSON exists - use filename as ID fallback
+                        file_id = generate_file_id(category_name, pdf_name)
+                    
+                    results.append({
+                        "file_id": file_id,
+                        "filename": pdf_name,
+                        "category": category_name,
+                        "title": json_data.get("title", json_file.stem),
+                        "matches": matches,
+                        "match_count": sum(len(v) for v in matches.values())
+                    })
+                    
+            except (json.JSONDecodeError, OSError):
+                # Skip files that can't be read or parsed
+                continue
+    
+    # Sort by match count (more matches = more relevant)
+    results.sort(key=lambda x: x["match_count"], reverse=True)
+    
+    return jsonify({
+        "query": query,
+        "category": category_filter if category_filter else None,
+        "results": results,
+        "total_count": len(results)
+    })
+
+
 if __name__ == '__main__':
     # Bind to 0.0.0.0 for LAN accessibility
     app.run(host='0.0.0.0', port=5000, debug=True)
