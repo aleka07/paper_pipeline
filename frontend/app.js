@@ -288,33 +288,48 @@ function renderFiles() {
 
     state.files.forEach(file => {
         const card = document.createElement('div');
-        card.className = 'file-card';
+        card.className = `file-card${state.selectedFiles.has(file.id) ? ' selected' : ''}`;
         card.dataset.fileId = file.id;
         card.innerHTML = `
-            <div class="file-card-header">
-                <span class="file-name">${file.filename}</span>
-                <div class="file-card-actions">
-                    <span class="status-badge ${file.status}">${file.status}</span>
-                    <button class="btn btn-icon btn-small file-menu-btn" aria-label="File menu">
-                        <span class="icon">⋮</span>
-                    </button>
-                </div>
+            <div class="file-card-checkbox">
+                <input type="checkbox" class="checkbox file-checkbox" data-file-id="${file.id}" ${state.selectedFiles.has(file.id) ? 'checked' : ''}>
             </div>
-            <div class="file-meta">
-                ${formatFileSize(file.size)} • ${formatDate(file.upload_date)}
+            <div class="file-card-content">
+                <div class="file-card-header">
+                    <span class="file-name">${file.filename}</span>
+                    <div class="file-card-actions">
+                        <span class="status-badge ${file.status}">${file.status}</span>
+                        <button class="btn btn-icon btn-small file-menu-btn" aria-label="File menu">
+                            <span class="icon">⋮</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="file-meta">
+                    ${formatFileSize(file.size)} • ${formatDate(file.upload_date)}
+                </div>
             </div>
         `;
 
-        // Click on card to view results
-        card.addEventListener('click', (e) => {
+        // Checkbox click handler - toggle file selection
+        const checkbox = card.querySelector('.file-checkbox');
+        checkbox.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+        checkbox.addEventListener('change', (e) => {
+            toggleFileSelection(file.id, e.target.checked);
+        });
+
+        // Click on card content to view results
+        const cardContent = card.querySelector('.file-card-content');
+        cardContent.addEventListener('click', (e) => {
             // Don't trigger if clicking the menu button
             if (!e.target.closest('.file-menu-btn')) {
                 viewFileResults(file);
             }
         });
 
-        // Right-click for context menu
-        card.addEventListener('contextmenu', (e) => showContextMenu(e, file));
+        // Right-click on card content for context menu
+        cardContent.addEventListener('contextmenu', (e) => showContextMenu(e, file));
 
         // Menu button click (for touch devices)
         const menuBtn = card.querySelector('.file-menu-btn');
@@ -670,6 +685,13 @@ async function confirmDelete() {
         return;
     }
 
+    // Check if this is a batch delete
+    if (pendingDeleteFile.isBatch) {
+        hideDeleteConfirmModal();
+        await batchDeleteFiles();
+        return;
+    }
+
     const file = pendingDeleteFile;
     hideDeleteConfirmModal();
 
@@ -836,6 +858,21 @@ document.addEventListener('DOMContentLoaded', () => {
     // Batch Process Selected button
     document.getElementById('batch-process-btn')?.addEventListener('click', () => {
         processSelectedFiles();
+    });
+
+    // Batch Delete Selected button
+    document.getElementById('batch-delete-btn')?.addEventListener('click', () => {
+        showBatchDeleteConfirmModal();
+    });
+
+    // Batch Export Selected button
+    document.getElementById('batch-export-btn')?.addEventListener('click', () => {
+        exportSelectedFiles();
+    });
+
+    // Select All checkbox
+    document.getElementById('select-all-checkbox')?.addEventListener('change', (e) => {
+        toggleSelectAll(e.target.checked);
     });
 
     // Context Menu Items
@@ -1155,6 +1192,134 @@ function updateBatchActionBar() {
     if (selectAllCheckbox && state.files.length > 0) {
         selectAllCheckbox.checked = state.selectedFiles.size === state.files.length;
         selectAllCheckbox.indeterminate = state.selectedFiles.size > 0 && state.selectedFiles.size < state.files.length;
+    }
+}
+
+// Toggle file selection
+function toggleFileSelection(fileId, isSelected) {
+    if (isSelected) {
+        state.selectedFiles.add(fileId);
+    } else {
+        state.selectedFiles.delete(fileId);
+    }
+
+    // Update the file card's selected visual state
+    const card = document.querySelector(`.file-card[data-file-id="${fileId}"]`);
+    if (card) {
+        if (isSelected) {
+            card.classList.add('selected');
+        } else {
+            card.classList.remove('selected');
+        }
+    }
+
+    updateBatchActionBar();
+}
+
+// Toggle select all files
+function toggleSelectAll(isSelected) {
+    if (isSelected) {
+        // Select all files in current category
+        state.files.forEach(file => {
+            state.selectedFiles.add(file.id);
+        });
+    } else {
+        // Deselect all
+        state.selectedFiles.clear();
+    }
+
+    // Update all checkboxes and card styles
+    renderFiles();
+    updateBatchActionBar();
+}
+
+// Batch Delete
+function showBatchDeleteConfirmModal() {
+    if (state.selectedFiles.size === 0) {
+        showToast('No files selected', 'warning');
+        return;
+    }
+
+    const modal = document.getElementById('delete-confirm-modal');
+    const confirmText = document.getElementById('delete-confirm-text');
+
+    const count = state.selectedFiles.size;
+    confirmText.textContent = `Are you sure you want to delete ${count} file${count > 1 ? 's' : ''}? This will remove the PDF files and all associated output files. This action cannot be undone.`;
+
+    // Store that this is a batch delete
+    pendingDeleteFile = { isBatch: true };
+
+    modal.classList.remove('hidden');
+}
+
+async function batchDeleteFiles() {
+    if (state.selectedFiles.size === 0) {
+        return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const fileId of state.selectedFiles) {
+        try {
+            await fetchAPI(`/files/${fileId}`, { method: 'DELETE' });
+            successCount++;
+        } catch (error) {
+            failCount++;
+        }
+    }
+
+    if (successCount > 0) {
+        showToast(`Deleted ${successCount} file${successCount > 1 ? 's' : ''} successfully`, 'success');
+    }
+    if (failCount > 0) {
+        showToast(`Failed to delete ${failCount} file${failCount > 1 ? 's' : ''}`, 'error');
+    }
+
+    state.selectedFiles.clear();
+    updateBatchActionBar();
+
+    // Refresh file list and categories
+    if (state.currentCategory) {
+        await loadFiles(state.currentCategory);
+        await loadCategories();
+    }
+}
+
+// Batch Export
+async function exportSelectedFiles() {
+    if (state.selectedFiles.size === 0) {
+        showToast('No files selected', 'warning');
+        return;
+    }
+
+    // Get the file objects for selected files
+    const selectedFileObjects = state.files.filter(f => state.selectedFiles.has(f.id));
+
+    // Filter to only completed files
+    const completedFiles = selectedFileObjects.filter(f => f.status === 'completed');
+
+    if (completedFiles.length === 0) {
+        showToast('No completed files to export (only processed files can be exported)', 'warning');
+        return;
+    }
+
+    // For now, download JSONs individually
+    // A better approach would be a batch export API endpoint, but let's use what's available
+    showToast(`Exporting ${completedFiles.length} file${completedFiles.length > 1 ? 's' : ''}...`, 'info');
+
+    let successCount = 0;
+    for (const file of completedFiles) {
+        try {
+            await downloadFileJson(file.id, file.filename);
+            successCount++;
+        } catch (error) {
+            console.error('Export error:', error);
+        }
+    }
+
+    if (successCount > 0) {
+        showToast(`Exported ${successCount} file${successCount > 1 ? 's' : ''}`, 'success');
     }
 }
 

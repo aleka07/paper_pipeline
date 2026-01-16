@@ -362,3 +362,22 @@ Conversation: ab99c06e-952e-412e-9657-18fe4ad32b50
   - Check viewport bounds when positioning context menus to avoid off-screen overflow
   - Use CSS `.disabled` class with `pointer-events: none` alternative for visual-only disabled states
 ---
+
+## 2026-01-16T16:28 - US-022: Batch Selection and Actions
+Conversation: 68da6062-d268-4269-b94c-7a254729abbb
+- Added checkboxes to file cards in `renderFiles()` function with `file-card-checkbox` container
+- Implemented `toggleFileSelection()` to add/remove files from selection with visual feedback
+- Implemented `toggleSelectAll()` to select/deselect all files in current category
+- Wired up Batch Delete button with `showBatchDeleteConfirmModal()` and `batchDeleteFiles()` functions
+- Wired up Batch Export button with `exportSelectedFiles()` function (downloads individual JSONs)
+- Updated `confirmDelete()` to handle batch deletes via `pendingDeleteFile.isBatch` flag
+- Added CSS for checkbox visibility on hover, selected card styling with purple glow border
+- Added CSS for batch action bar with glassmorphism styling
+- Browser verified: checkboxes appear on hover, selection works, batch action bar shows/hides, count updates correctly
+- Files changed: `frontend/app.js`, `frontend/styles.css`, `prd.json`
+- **Learnings for future iterations:**
+  - Use `state.selectedFiles` Set to track selected file IDs across the app
+  - Render checkboxes inside `.file-card-checkbox` container positioned absolutely for clean layout
+  - The Select All checkbox should use indeterminate state when partial selection exists
+  - Batch delete reuses the delete confirmation modal with `isBatch: true` flag to differentiate
+---

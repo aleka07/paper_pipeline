@@ -619,6 +619,96 @@ body {
     background: var(--color-bg-tertiary);
 }
 
+/* File Card Checkbox and Selection */
+.file-card-checkbox {
+    position: absolute;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 5;
+}
+
+.file-card-checkbox .checkbox {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--color-accent);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--transition-speed);
+}
+
+.file-card:hover .file-card-checkbox .checkbox,
+.file-card.selected .file-card-checkbox .checkbox {
+    opacity: 1;
+}
+
+.file-card-checkbox .checkbox:checked {
+    opacity: 1;
+}
+
+.file-card-content {
+    padding-left: 1.75rem;
+}
+
+.file-card.selected {
+    border-color: var(--color-accent);
+    background: rgba(139, 92, 246, 0.1);
+    box-shadow: 0 0 15px var(--color-accent-glow);
+}
+
+.file-card.selected::before {
+    opacity: 1;
+}
+
+/* Batch Action Bar */
+.batch-action-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: var(--color-bg-glass);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border-radius: var(--border-radius);
+    border: var(--glass-border);
+    margin-bottom: 1rem;
+    animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.batch-action-bar.hidden {
+    display: none;
+}
+
+.batch-action-bar .selection-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+}
+
+.batch-action-bar .selection-info .checkbox {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--color-accent);
+}
+
+.batch-action-bar .batch-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
 /* Empty States - Enhanced */
 .empty-state {
     text-align: center;

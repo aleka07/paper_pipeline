@@ -334,7 +334,7 @@
                 "Verify in browser using browser tool"
             ],
             "priority": 22,
-            "passes": false,
+            "passes": true,
             "notes": ""
         },
         {
