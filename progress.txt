@@ -133,3 +133,19 @@ Conversation: 61a74357-aa9d-45d7-8a2e-16d58534493d
   - 207 Multi-Status is appropriate for partial success scenarios
   - Reprocess should clear both .md and .json before queuing to ensure full pipeline runs
 ---
+
+## 2026-01-16T13:45 - US-010: Search and Filter API
+Conversation: 9189dc4f-4703-43a5-b1c3-41dcd336b59f
+- Implemented GET /api/search?q=<query> endpoint for full-text search across JSON results
+- Searches title, authors, keywords, and summary/abstract fields (case-insensitive)
+- Returns matching files with relevance snippets and match count
+- Supports category filtering with ?category=<name> parameter
+- Results sorted by relevance (match count descending)
+- Pyright typecheck passes with 0 errors
+- Files changed: `backend/app.py`
+- **Learnings for future iterations:**
+  - Use `dict.get()` with fallback fields for flexible data access (e.g., summary vs abstract)
+  - Extract snippets with context for better search UX (±50 chars around match)
+  - Sort results by match_count for relevance ranking
+---
+
