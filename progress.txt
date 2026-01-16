@@ -1,0 +1,38 @@
+# Progress Log - Paper Pipeline Web Interface
+
+## Codebase Patterns
+- Use existing `LocalPDFProcessor` class from `pdf_processor.py` for processing logic
+- File status derived from existence: input PDF → markdown → JSON output
+- Directory structure: `data/input/`, `data/markdown/`, `data/output/`
+- Backend serves on `0.0.0.0:5000` for LAN accessibility
+- Frontend is vanilla HTML/CSS/JS in `frontend/` directory
+
+---
+
+## 2026-01-16T13:08 - US-001: Flask Backend Setup
+Conversation: 93b691cf-df30-4b46-a2b3-26177c03c39f
+- Created `backend/app.py` with Flask application setup
+- Configured CORS for local network access with `flask-cors`
+- Application binds to 0.0.0.0:5000 for LAN accessibility
+- Health check endpoint at `/api/health` returns `{"status": "ok"}`
+- Created placeholder `frontend/index.html` for static file serving
+- Installed flask and flask-cors dependencies
+- Files changed: `backend/app.py`, `backend/__init__.py`, `frontend/index.html`
+- **Learnings for future iterations:**
+  - Flask serves static files from `../frontend` relative to app.py location
+  - CORS configured with wildcard origins for local network development
+---
+
+## 2026-01-16T13:12 - US-002: Category API Endpoints
+Conversation: 1e7d61c6-440c-4a66-badc-19ff6193408f
+- Implemented Category CRUD endpoints in `backend/app.py`
+- GET /api/categories returns list with file counts and status summary
+- POST /api/categories creates new category folder (returns 201)
+- DELETE /api/categories/<name> removes empty category (returns 404 if not found, 400 if not empty)
+- Added helper functions: `get_file_status()` and `get_category_stats()`
+- Directory paths use `pathlib.Path` for cross-platform compatibility
+- Files changed: `backend/app.py`
+- **Learnings for future iterations:**
+  - File status derived from: PDF exists → check for .json (completed) → check for .md (markdown) → pending
+  - Category directories created in all three data folders: input/, markdown/, output/
+---
