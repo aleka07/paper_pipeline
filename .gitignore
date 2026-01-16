@@ -6,3 +6,5 @@ logs/
 .agent
 prd.json
 progress.txt
+GEMINI.md
+tasks/
