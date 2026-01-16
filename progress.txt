@@ -104,5 +104,18 @@ Conversation: d72411ef-c34a-4ff0-b28c-4951196a9a3e
 - Files changed: `backend/app.py`
 - **Learnings for future iterations:**
   - Use `processing_queue.get_nowait()` in a loop to drain queue for cancel
-  - Cancel must reset all processing state fields (status, current_file, current_phase, queue_length)
+   - Cancel must reset all processing state fields (status, current_file, current_phase, queue_length)
+---
+
+## 2026-01-16T13:37 - US-008: Results API (JSON Output)
+Conversation: 5d6eed17-c7ba-40c0-a753-cdb4cfdc773e
+- Implemented GET /api/results/<file_id> endpoint - returns parsed JSON content
+- Implemented GET /api/results/<file_id>/raw endpoint - returns raw JSON file as download
+- Returns 404 with helpful error message if file not found or not yet processed
+- Error responses include file status and processing suggestion
+- Pyright typecheck passes with 0 errors
+- Files changed: `backend/app.py`
+- **Learnings for future iterations:**
+  - Use Flask's `Response` class with `Content-Disposition` header for file downloads
+  - json.load() for parsed content, raw file read for download endpoint
 ---

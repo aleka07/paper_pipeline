@@ -684,6 +684,94 @@ def process_all():
     }), 202
 
 
+# ============= Results API Endpoints =============
+
+@app.route('/api/results/<file_id>', methods=['GET'])
+def get_results(file_id: str):
+    """Get parsed JSON content for a processed file."""
+    import json
+    
+    result = find_file_by_id(file_id)
+    
+    if result is None:
+        return jsonify({"error": f"File with ID '{file_id}' not found"}), 404
+    
+    pdf_path, category = result
+    base_name = pdf_path.stem
+    json_path = OUTPUT_DIR / category / f"{base_name}.json"
+    
+    if not json_path.exists():
+        status = get_file_status(pdf_path.name, category)
+        return jsonify({
+            "error": "File not yet processed",
+            "file_id": file_id,
+            "filename": pdf_path.name,
+            "status": status,
+            "suggestion": "Use /api/process/file/<file_id> to process this file"
+        }), 404
+    
+    try:
+        with open(json_path, 'r', encoding='utf-8') as f:
+            content = json.load(f)
+        
+        return jsonify({
+            "file_id": file_id,
+            "filename": pdf_path.name,
+            "category": category,
+            "results": content
+        })
+    except json.JSONDecodeError as e:
+        return jsonify({
+            "error": "Failed to parse JSON results",
+            "details": str(e)
+        }), 500
+    except OSError as e:
+        return jsonify({
+            "error": f"Failed to read results file: {str(e)}"
+        }), 500
+
+
+@app.route('/api/results/<file_id>/raw', methods=['GET'])
+def get_results_raw(file_id: str):
+    """Get raw JSON file content for a processed file."""
+    from flask import Response
+    
+    result = find_file_by_id(file_id)
+    
+    if result is None:
+        return jsonify({"error": f"File with ID '{file_id}' not found"}), 404
+    
+    pdf_path, category = result
+    base_name = pdf_path.stem
+    json_path = OUTPUT_DIR / category / f"{base_name}.json"
+    
+    if not json_path.exists():
+        status = get_file_status(pdf_path.name, category)
+        return jsonify({
+            "error": "File not yet processed",
+            "file_id": file_id,
+            "filename": pdf_path.name,
+            "status": status,
+            "suggestion": "Use /api/process/file/<file_id> to process this file"
+        }), 404
+    
+    try:
+        with open(json_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        return Response(
+            content,
+            mimetype='application/json',
+            headers={
+                'Content-Disposition': f'attachment; filename="{base_name}.json"'
+            }
+        )
+    except OSError as e:
+        return jsonify({
+            "error": f"Failed to read results file: {str(e)}"
+        }), 500
+
+
 if __name__ == '__main__':
     # Bind to 0.0.0.0 for LAN accessibility
     app.run(host='0.0.0.0', port=5000, debug=True)
