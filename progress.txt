@@ -220,3 +220,22 @@ Conversation: 02829c4a-703f-4e91-bf1e-5181ae5368f2
   - Category data already contains `total_files` count, use it directly
   - Use `.find()` to locate category object in state for access to its properties
 ---
+
+## 2026-01-16T14:15 - US-015: File List Component
+Conversation: d0ae03e6-c1c5-4ee3-9e18-e101f0c1a62c
+- Verified existing `renderFiles()` function in `app.js` (lines 156-184)
+- File grid displays in responsive grid layout (repeat(auto-fill, minmax(280px, 1fr)))
+- Each file card shows: filename, status badge, file size, upload date
+- Status badges use correct CSS classes with gradient colors:
+  - Green (completed), Yellow (markdown), Blue (pending), Red (failed)
+- File card hover effects: lift (-4px), glow, border accent color
+- Click handler opens results panel for completed files
+- Context menu on right-click for file actions
+- Empty state displays "No files yet" message when category is empty
+- Browser verification passed: category selection works, file grid renders correctly
+- Files changed: `prd.json`
+- **Learnings for future iterations:**
+  - File list was already fully implemented in previous stories
+  - Browser verification is essential even for "complete" features
+  - CSS hover effects verified via stylesheet inspection
+---
