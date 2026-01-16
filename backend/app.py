@@ -4,10 +4,20 @@ Serves the web application and exposes API endpoints for the paper processing pi
 """
 
 import os
+import sys
+import threading
+import uuid
+from datetime import datetime
 from pathlib import Path
+from queue import Queue
+from typing import Any
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+
+# Add parent directory to path for pdf_processor import
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from pdf_processor import LocalPDFProcessor
 
 app = Flask(__name__, static_folder='../frontend', static_url_path='')
 
@@ -31,6 +41,143 @@ OUTPUT_DIR = DATA_DIR / 'output'
 INPUT_DIR.mkdir(parents=True, exist_ok=True)
 MARKDOWN_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+
+# ============= Processing Infrastructure =============
+
+# Job tracking
+jobs: dict[str, dict[str, Any]] = {}
+processing_queue: Queue[dict[str, Any]] = Queue()
+
+# Processing state
+processing_state = {
+    "status": "idle",  # idle, running, paused
+    "current_file": None,
+    "current_phase": None,  # 1 (PDF→MD) or 2 (MD→JSON)
+    "queue_length": 0,
+}
+
+# Processing lock
+processing_lock = threading.Lock()
+
+# Processor instance (lazy initialized)
+_processor: LocalPDFProcessor | None = None
+
+
+def get_processor() -> LocalPDFProcessor:
+    """Get or create the PDF processor instance."""
+    global _processor
+    if _processor is None:
+        _processor = LocalPDFProcessor(backend="vllm")
+    return _processor
+
+
+def find_file_by_id(file_id: str) -> tuple[Path, str] | None:
+    """Find a PDF file by its ID. Returns (file_path, category) or None."""
+    for category_dir in INPUT_DIR.iterdir():
+        if category_dir.is_dir():
+            for pdf_file in category_dir.glob("*.pdf"):
+                if generate_file_id(category_dir.name, pdf_file.name) == file_id:
+                    return (pdf_file, category_dir.name)
+    return None
+
+
+def process_single_file(pdf_path: Path, category: str, job_id: str) -> bool:
+    """Process a single PDF file through the full pipeline."""
+    global processing_state
+    
+    try:
+        processor = get_processor()
+        base_name = pdf_path.stem
+        
+        # Phase 1: PDF → Markdown
+        with processing_lock:
+            processing_state["current_file"] = pdf_path.name
+            processing_state["current_phase"] = 1
+        
+        md_success = processor.convert_pdf_to_markdown(
+            str(pdf_path), category, "001"  # sequence_id for naming
+        )
+        
+        if not md_success:
+            return False
+        
+        # Phase 2: Markdown → JSON
+        with processing_lock:
+            processing_state["current_phase"] = 2
+        
+        md_path = MARKDOWN_DIR / category / f"{base_name}.md"
+        json_success = processor.generate_json_from_markdown(str(md_path), category)
+        
+        return json_success
+        
+    except Exception as e:
+        print(f"Error processing {pdf_path.name}: {e}")
+        return False
+
+
+def background_processor():
+    """Background thread that processes files from the queue."""
+    global processing_state
+    
+    while True:
+        # Get next file from queue
+        task = processing_queue.get()
+        
+        if task is None:  # Shutdown signal
+            break
+        
+        job_id = task["job_id"]
+        pdf_path = task["pdf_path"]
+        category = task["category"]
+        file_id = task["file_id"]
+        
+        # Check if paused
+        while True:
+            with processing_lock:
+                if processing_state["status"] == "idle":
+                    # Job was cancelled
+                    processing_queue.task_done()
+                    continue
+                if processing_state["status"] == "running":
+                    break
+            # Paused - wait a bit
+            threading.Event().wait(0.5)
+        
+        # Update job status
+        with processing_lock:
+            processing_state["queue_length"] = processing_queue.qsize()
+            if job_id in jobs:
+                jobs[job_id]["status"] = "processing"
+                jobs[job_id]["current_file"] = pdf_path.name
+        
+        # Process the file
+        success = process_single_file(pdf_path, category, job_id)
+        
+        # Update job status
+        with processing_lock:
+            if job_id in jobs:
+                if success:
+                    jobs[job_id]["completed"].append(file_id)
+                else:
+                    jobs[job_id]["failed"].append(file_id)
+            
+            processing_state["queue_length"] = processing_queue.qsize()
+            
+            # If queue is empty, go idle
+            if processing_queue.empty():
+                processing_state["status"] = "idle"
+                processing_state["current_file"] = None
+                processing_state["current_phase"] = None
+                if job_id in jobs:
+                    jobs[job_id]["status"] = "completed"
+        
+        processing_queue.task_done()
+
+
+# Start background processor thread
+processor_thread = threading.Thread(target=background_processor, daemon=True)
+processor_thread.start()
 
 
 def get_file_status(filename: str, category: str) -> str:
@@ -270,8 +417,6 @@ def upload_file(name: str):
 @app.route('/api/categories/<name>/files', methods=['GET'])
 def list_files(name: str):
     """List all files in a category with their processing status."""
-    from datetime import datetime
-    
     category_path = INPUT_DIR / name
     
     # Validate category exists
@@ -302,6 +447,141 @@ def list_files(name: str):
         "files": files,
         "total_count": len(files)
     })
+
+
+# ============= Processing Trigger API Endpoints =============
+
+def create_job(file_count: int) -> str:
+    """Create a new processing job and return its ID."""
+    job_id = str(uuid.uuid4())[:8]
+    jobs[job_id] = {
+        "id": job_id,
+        "status": "queued",
+        "created_at": datetime.now().isoformat(),
+        "total_files": file_count,
+        "completed": [],
+        "failed": [],
+        "current_file": None
+    }
+    return job_id
+
+
+def queue_files_for_processing(file_list: list[tuple[Path, str]], job_id: str) -> None:
+    """Add files to the processing queue."""
+    global processing_state
+    
+    for pdf_path, category in file_list:
+        file_id = generate_file_id(category, pdf_path.name)
+        processing_queue.put({
+            "job_id": job_id,
+            "pdf_path": pdf_path,
+            "category": category,
+            "file_id": file_id
+        })
+    
+    with processing_lock:
+        processing_state["status"] = "running"
+        processing_state["queue_length"] = processing_queue.qsize()
+
+
+@app.route('/api/process/file/<file_id>', methods=['POST'])
+def process_file(file_id: str):
+    """Trigger full pipeline processing for a single file."""
+    result = find_file_by_id(file_id)
+    
+    if result is None:
+        return jsonify({"error": f"File with ID '{file_id}' not found"}), 404
+    
+    pdf_path, category = result
+    
+    # Check if file is already processed
+    status = get_file_status(pdf_path.name, category)
+    if status == "completed":
+        return jsonify({
+            "error": "File is already processed",
+            "suggestion": "Use /api/files/<file_id>/reprocess to reprocess"
+        }), 400
+    
+    # Create job and queue file
+    job_id = create_job(1)
+    queue_files_for_processing([(pdf_path, category)], job_id)
+    
+    return jsonify({
+        "message": "Processing started",
+        "job_id": job_id,
+        "file": {
+            "id": file_id,
+            "filename": pdf_path.name,
+            "category": category
+        }
+    }), 202
+
+
+@app.route('/api/process/category/<name>', methods=['POST'])
+def process_category(name: str):
+    """Trigger processing for all pending files in a category."""
+    category_path = INPUT_DIR / name
+    
+    if not category_path.exists() or not category_path.is_dir():
+        return jsonify({"error": f"Category '{name}' not found"}), 404
+    
+    # Find all pending files in category
+    pending_files: list[tuple[Path, str]] = []
+    for pdf_file in category_path.glob("*.pdf"):
+        status = get_file_status(pdf_file.name, name)
+        if status in ["pending", "markdown"]:  # Include markdown (phase 1 done, need phase 2)
+            pending_files.append((pdf_file, name))
+    
+    if not pending_files:
+        return jsonify({
+            "message": "No pending files to process in this category"
+        }), 200
+    
+    # Create job and queue files
+    job_id = create_job(len(pending_files))
+    queue_files_for_processing(pending_files, job_id)
+    
+    return jsonify({
+        "message": f"Processing started for {len(pending_files)} files",
+        "job_id": job_id,
+        "category": name,
+        "file_count": len(pending_files)
+    }), 202
+
+
+@app.route('/api/process/all', methods=['POST'])
+def process_all():
+    """Trigger processing for all pending files across all categories."""
+    pending_files: list[tuple[Path, str]] = []
+    
+    for category_dir in INPUT_DIR.iterdir():
+        if category_dir.is_dir():
+            category_name = category_dir.name
+            for pdf_file in category_dir.glob("*.pdf"):
+                status = get_file_status(pdf_file.name, category_name)
+                if status in ["pending", "markdown"]:
+                    pending_files.append((pdf_file, category_name))
+    
+    if not pending_files:
+        return jsonify({
+            "message": "No pending files to process"
+        }), 200
+    
+    # Create job and queue files
+    job_id = create_job(len(pending_files))
+    queue_files_for_processing(pending_files, job_id)
+    
+    # Count by category
+    category_counts: dict[str, int] = {}
+    for _, category in pending_files:
+        category_counts[category] = category_counts.get(category, 0) + 1
+    
+    return jsonify({
+        "message": f"Processing started for {len(pending_files)} files",
+        "job_id": job_id,
+        "total_files": len(pending_files),
+        "by_category": category_counts
+    }), 202
 
 
 if __name__ == '__main__':
