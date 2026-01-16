@@ -93,3 +93,16 @@ Conversation: 7d1c1d9b-4a0d-4f13-a450-add5f4301d65
   - `processing_state` global dict already tracks all needed status info
   - Use `processing_lock` when reading shared state for thread safety
 ---
+
+## 2026-01-16T13:36 - US-007: Processing Control API (Pause/Resume/Cancel)
+Conversation: d72411ef-c34a-4ff0-b28c-4951196a9a3e
+- Implemented POST /api/process/pause endpoint - pauses after current file completes
+- Implemented POST /api/process/resume endpoint - resumes paused processing
+- Implemented POST /api/process/cancel endpoint - stops processing and clears queue
+- All endpoints properly update `processing_state` with thread-safe locking
+- Pyright typecheck passes with 0 errors
+- Files changed: `backend/app.py`
+- **Learnings for future iterations:**
+  - Use `processing_queue.get_nowait()` in a loop to drain queue for cancel
+  - Cancel must reset all processing state fields (status, current_file, current_phase, queue_length)
+---
