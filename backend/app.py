@@ -80,7 +80,7 @@ def get_processor() -> LocalPDFProcessor:
     """Get or create the PDF processor instance."""
     global _processor
     if _processor is None:
-        _processor = LocalPDFProcessor(backend="vllm")
+        _processor = LocalPDFProcessor(backend="ollama")
     return _processor
 
 
@@ -95,28 +95,36 @@ def find_file_by_id(file_id: str) -> tuple[Path, str] | None:
 
 
 def process_single_file(pdf_path: Path, category: str, job_id: str) -> bool:
-    """Process a single PDF file through the full pipeline."""
+    """Process a single PDF file through the full pipeline.
+    
+    Skips Phase 1 if markdown already exists (resumes from Phase 2).
+    """
     global processing_state
     
     try:
         processor = get_processor()
         base_name = pdf_path.stem
+        md_path = MARKDOWN_DIR / category / f"{base_name}.md"
         
-        # Phase 1: PDF → Markdown
-        with processing_lock:
-            processing_state["current_file"] = pdf_path.name
-            processing_state["current_phase"] = 1
-        
-        md_success = processor.convert_pdf_to_markdown(str(pdf_path), category)
-        
-        if not md_success:
-            return False
+        # Check if we can skip Phase 1 (markdown already exists)
+        if md_path.exists():
+            print(f"   ⏭️  Skipping Phase 1 - markdown exists: {md_path.name}")
+        else:
+            # Phase 1: PDF → Markdown
+            with processing_lock:
+                processing_state["current_file"] = pdf_path.name
+                processing_state["current_phase"] = 1
+            
+            md_success = processor.convert_pdf_to_markdown(str(pdf_path), category)
+            
+            if not md_success:
+                return False
         
         # Phase 2: Markdown → JSON
         with processing_lock:
+            processing_state["current_file"] = pdf_path.name
             processing_state["current_phase"] = 2
         
-        md_path = MARKDOWN_DIR / category / f"{base_name}.md"
         json_success = processor.generate_json_from_markdown(str(md_path), category)
         
         return json_success

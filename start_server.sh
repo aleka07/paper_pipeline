@@ -3,7 +3,8 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_DIR="$SCRIPT_DIR/logs"
-LOG_FILE="$LOG_DIR/server.log"
+TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
+LOG_FILE="$LOG_DIR/server_${TIMESTAMP}.log"
 PID_FILE="$LOG_DIR/server.pid"
 
 # Create logs directory if it doesn't exist
